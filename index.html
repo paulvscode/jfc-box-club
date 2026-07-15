@@ -1220,21 +1220,25 @@
     return true;
   }
 
-  // ---------- Special-skill screen popup: pop in full-screen, hold briefly, then crumble apart ----------
-  const SPECIAL_POPUP_POP_TIME = 0.12;
-  const SPECIAL_POPUP_HOLD_TIME = 1.5;
-  const SPECIAL_POPUP_CRUMBLE_TIME = 0.45;
-  const SPECIAL_POPUP_DURATION = SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME + SPECIAL_POPUP_CRUMBLE_TIME;
+  // ---------- Special-skill screen popup: slides in as a side panel, holds, then crumbles apart ----------
+  const SPECIAL_POPUP_POP_TIME = 0.15;   // slide-in duration
+  const SPECIAL_POPUP_HOLD_TIME = 1.0;   // how long it sits still before crumbling
+  const SPECIAL_POPUP_CRUMBLE_TIME = 0.4;
+  const SPECIAL_POPUP_DURATION = SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME + SPECIAL_POPUP_CRUMBLE_TIME; // ~1.55s total, within the 1.5-2s budget
   const SPECIAL_POPUP_CRUMBLE_COLS = 12;
   const SPECIAL_POPUP_CRUMBLE_ROWS = 7;
   const SPECIAL_POPUP_CRUMBLE_GRAVITY = 1100; // px/s^2, how fast pieces accelerate downward
   const SPECIAL_POPUP_CRUMBLE_STAGGER = 0.15; // seconds, random per-tile delay before it starts falling
-  // Shifts the popup's center point, in pixels. x: positive = right, negative = left.
-  // z: positive = higher up, negative = lower. { x:0, z:0 } is dead-center of the screen.
+  // Shifts the panel's center point, in pixels, from its resting position on the chosen side.
+  // x: positive = right, negative = left. z: positive = higher up, negative = lower.
   const SPECIAL_POPUP_OFFSET = { x: 0, z: 0 };
-  // Drawn slightly larger than a strict "cover" fit so there's vertical slack to pan through
-  // without ever exposing empty space above/below during the scroll.
-  const SPECIAL_POPUP_OVERSCAN = 1;
+  // How much of the screen width the popup panel occupies, and which edge it slides in from/anchors to.
+  const SPECIAL_POPUP_WIDTH_FRAC = 1 / 3;
+  const SPECIAL_POPUP_SIDE = "right"; // "left" to slide in from/anchor to the opposite edge instead
+  // Drawn slightly larger than a strict "cover" fit of the panel so there's vertical slack to pan
+  // through without ever exposing empty space above/below during the scroll. Bumped up from the
+  // full-screen version's value since a narrower panel naturally has less overflow to work with.
+  const SPECIAL_POPUP_OVERSCAN = 1.15;
   // How fast the popup gently pans downward while held, in pixels/second. Higher = faster scroll.
   // Automatically clamped to whatever vertical slack SPECIAL_POPUP_OVERSCAN provides, so cranking
   // this up just makes it reach the bottom sooner rather than exposing empty edges.
@@ -1268,12 +1272,20 @@
     if (specialPopupTimer <= 0 || !isReady(specialPopupImg)) return;
     const elapsed = SPECIAL_POPUP_DURATION - specialPopupTimer;
 
-    // "cover" fit: fills the whole canvas, cropping overflow rather than stretching/distorting
-    // (overscanned a bit so there's room to pan vertically without exposing empty edges)
-    const cover = Math.max(W / specialPopupImg.naturalWidth, H / specialPopupImg.naturalHeight) * SPECIAL_POPUP_OVERSCAN;
+    // Slides in from the chosen screen edge to its resting position, then sits still.
+    const panelW = W * SPECIAL_POPUP_WIDTH_FRAC;
+    const restX = SPECIAL_POPUP_SIDE === "right" ? W - panelW : 0;
+    const offscreenX = SPECIAL_POPUP_SIDE === "right" ? W : -panelW;
+    const slideT = Math.min(1, elapsed / SPECIAL_POPUP_POP_TIME);
+    const eased = 1 - Math.pow(1 - slideT, 3); // easeOutCubic: snappy slide, settles gently
+    const panelX = offscreenX + (restX - offscreenX) * eased;
+
+    // "cover" fit within the panel: fills the panel rect, cropping overflow rather than
+    // stretching/distorting (overscanned a bit so there's room to pan vertically)
+    const cover = Math.max(panelW / specialPopupImg.naturalWidth, H / specialPopupImg.naturalHeight) * SPECIAL_POPUP_OVERSCAN;
     const fullW = specialPopupImg.naturalWidth * cover;
     const fullH = specialPopupImg.naturalHeight * cover;
-    const centerX = W/2 + SPECIAL_POPUP_OFFSET.x, centerY = H/2 - SPECIAL_POPUP_OFFSET.z;
+    const centerX = panelX + panelW/2 + SPECIAL_POPUP_OFFSET.x, centerY = H/2 - SPECIAL_POPUP_OFFSET.z;
     const baseX = centerX - fullW/2;
 
     // Gently pans the image downward (revealing more of its bottom) at SPECIAL_POPUP_SCROLL_SPEED
@@ -1286,12 +1298,15 @@
     ctx.save();
     ctx.imageSmoothingEnabled = false; // keep pixel art crisp/blocky instead of blurred
 
-    if (elapsed < SPECIAL_POPUP_POP_TIME){
-      const t = elapsed / SPECIAL_POPUP_POP_TIME;
-      const w = fullW * t, h = fullH * t;
-      ctx.drawImage(specialPopupImg, centerX - w/2, centerY - h/2, w, h);
-    } else if (elapsed < SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME){
+    if (elapsed < SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME){
+      // slide-in + hold: clipped to the panel rect so it reads as a contained side panel,
+      // not a full image that happens to be positioned off to one side
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(panelX, 0, panelW, H);
+      ctx.clip();
       ctx.drawImage(specialPopupImg, baseX, baseY, fullW, fullH);
+      ctx.restore();
     } else if (specialPopupTiles){
       const crumbleT = elapsed - SPECIAL_POPUP_POP_TIME - SPECIAL_POPUP_HOLD_TIME;
       const tileW = fullW / SPECIAL_POPUP_CRUMBLE_COLS;
