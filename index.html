@@ -195,6 +195,122 @@
   }
   .roadmap-close:hover{ color:var(--paper); }
   .roadmap-card{ position:relative; }
+
+  .admin-btn{
+    position:fixed;
+    top:60px;
+    right:16px;
+    z-index:10;
+    background:var(--panel);
+    border:2px solid var(--gold-dim);
+    color:var(--gold);
+    font-family:inherit;
+    font-weight:bold;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding:8px 14px;
+    border-radius:5px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,0.45);
+  }
+  .admin-btn:hover{ border-color:var(--gold); }
+  .admin-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+  .admin-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:20;
+    background:rgba(10,6,9,0.78);
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .admin-overlay.open{ display:flex; }
+  .admin-card{
+    position:relative;
+    width:100%;
+    max-width:620px;
+    max-height:86vh;
+    overflow-y:auto;
+    background:var(--panel);
+    border:2px solid var(--gold-dim);
+    border-radius:8px;
+    padding:22px 26px 26px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.55);
+  }
+  .admin-card h2{
+    margin:0 0 2px;
+    font-family:"Arial Black",Impact,"Segoe UI",sans-serif;
+    letter-spacing:1.5px;
+    color:var(--gold);
+    font-size:19px;
+  }
+  .admin-card .admin-sub{
+    font-size:11px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    margin-bottom:18px;
+  }
+  .admin-group{ margin-bottom:16px; }
+  .admin-group:last-of-type{ margin-bottom:18px; }
+  .admin-group h3{
+    margin:0 0 8px;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--paper);
+    border-bottom:1px solid var(--panel-line);
+    padding-bottom:4px;
+  }
+  .admin-row{
+    display:grid;
+    grid-template-columns:1fr 90px;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    color:var(--paper-dim);
+    padding:3px 0;
+  }
+  .admin-row input{
+    width:100%;
+    background:#171016;
+    border:1px solid var(--panel-line);
+    border-radius:4px;
+    color:var(--paper);
+    font-family:inherit;
+    font-size:13px;
+    padding:4px 6px;
+  }
+  .admin-row input:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
+  .admin-reset{
+    background:var(--panel);
+    border:2px solid var(--gold-dim);
+    color:var(--gold);
+    font-family:inherit;
+    font-weight:bold;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding:8px 14px;
+    border-radius:5px;
+    cursor:pointer;
+  }
+  .admin-reset:hover{ border-color:var(--gold); }
+  .admin-close{
+    position:absolute;
+    top:14px;
+    right:16px;
+    background:none;
+    border:none;
+    color:var(--paper-dim);
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .admin-close:hover{ color:var(--paper); }
 </style>
 </head>
 <body>
@@ -210,7 +326,6 @@
       <h3>Content</h3>
       <ul>
         <li>Add more stages beyond "Manif' de rue" (currently 3 waves + 1 boss)</li>
-        <li>Give the boss unique attack patterns (currently reuses grunt AI)</li>
         <li>Extend the perk-tree/unlock screen to future levels</li>
       </ul>
     </div>
@@ -256,6 +371,60 @@
   })();
 </script>
 
+<button class="admin-btn" id="adminBtn" type="button" aria-haspopup="dialog" aria-controls="adminOverlay" style="display:none;">Admin</button>
+<div class="admin-overlay" id="adminOverlay" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+  <div class="admin-card">
+    <button class="admin-close" id="adminClose" type="button" aria-label="Close admin panel">×</button>
+    <h2 id="adminTitle">Admin Parameters</h2>
+    <div class="admin-sub">Dev mode only &middot; changes apply live &middot; toggle with <kbd>`</kbd></div>
+
+    <div class="admin-group">
+      <h3>Punch</h3>
+      <div class="admin-row"><span>Range</span><input type="number" id="adm-punch-range" step="1"></div>
+      <div class="admin-row"><span>Damage</span><input type="number" id="adm-punch-damage" step="0.1"></div>
+      <div class="admin-row"><span>Cooldown (s)</span><input type="number" id="adm-punch-cooldown" step="0.01"></div>
+    </div>
+
+    <div class="admin-group">
+      <h3>Kick</h3>
+      <div class="admin-row"><span>Range</span><input type="number" id="adm-kick-range" step="1"></div>
+      <div class="admin-row"><span>Damage</span><input type="number" id="adm-kick-damage" step="0.1"></div>
+      <div class="admin-row"><span>Cooldown (s)</span><input type="number" id="adm-kick-cooldown" step="0.01"></div>
+    </div>
+
+    <div class="admin-group">
+      <h3>Fireball</h3>
+      <div class="admin-row"><span>Damage</span><input type="number" id="adm-fireball-damage" step="1"></div>
+      <div class="admin-row"><span>Speed</span><input type="number" id="adm-fireball-speed" step="10"></div>
+      <div class="admin-row"><span>Cooldown (s)</span><input type="number" id="adm-fireball-cooldown" step="0.1"></div>
+    </div>
+
+    <div class="admin-group">
+      <h3>Grenade</h3>
+      <div class="admin-row"><span>Damage</span><input type="number" id="adm-grenade-damage" step="1"></div>
+      <div class="admin-row"><span>Blast radius</span><input type="number" id="adm-grenade-radius" step="1"></div>
+      <div class="admin-row"><span>Cooldown (s)</span><input type="number" id="adm-grenade-cooldown" step="0.1"></div>
+    </div>
+
+    <div class="admin-group">
+      <h3>Paper toss</h3>
+      <div class="admin-row"><span>Damage</span><input type="number" id="adm-papers-damage" step="1"></div>
+      <div class="admin-row"><span>Speed</span><input type="number" id="adm-papers-speed" step="10"></div>
+      <div class="admin-row"><span>Cooldown (s)</span><input type="number" id="adm-papers-cooldown" step="0.1"></div>
+    </div>
+
+    <div class="admin-group">
+      <h3>Special</h3>
+      <div class="admin-row"><span>Hits to charge</span><input type="number" id="adm-special-charge" step="1"></div>
+      <div class="admin-row"><span>Damage</span><input type="number" id="adm-special-damage" step="1"></div>
+      <div class="admin-row"><span>Radius</span><input type="number" id="adm-special-radius" step="1"></div>
+      <div class="admin-row"><span>Stun duration (s)</span><input type="number" id="adm-special-stun" step="0.1"></div>
+    </div>
+
+    <button class="admin-reset" id="adminReset" type="button">Reset to defaults</button>
+  </div>
+</div>
+
 <div class="stage">
   <div class="title-row">
     <h1>JFC BOX CLUB</h1>
@@ -296,6 +465,14 @@
   crowdBg.onerror = () => console.warn(`[sprites] failed to load crowd background -> ${CROWD_BG_PATH} (procedural crowd will show instead)`);
   crowdBg.src = CROWD_BG_PATH;
 
+  // Special-skill popup: a screen-space image (not tied to world position) that pops in and
+  // fades out fast when the special is used. Drop an image at this path -- pixel art recommended,
+  // it's drawn with smoothing disabled so it stays crisp/blocky instead of getting blurred.
+  const SPECIAL_POPUP_PATH = "assets/ui/special_pop.png";
+  const specialPopupImg = new Image();
+  specialPopupImg.onerror = () => console.warn(`[sprites] failed to load special popup -> ${SPECIAL_POPUP_PATH} (nothing will show until this file exists)`);
+  specialPopupImg.src = SPECIAL_POPUP_PATH;
+
   // Floor band: defines the pseudo-3D depth axis (y = depth, mapped to screen space)
   const FLOOR = { xMin: 50, xMax: W - 50, yMin: 250, yMax: 470 };
   const depthScale = (y) => 0.72 + ((y - FLOOR.yMin) / (FLOOR.yMax - FLOOR.yMin)) * 0.5;
@@ -317,6 +494,9 @@
     unlockAudioOnce(); // first keypress of any kind starts the menu music (browsers block audio before a user gesture)
     if (DEV_MODE && e.code === "Digit0" && matchState === "playing"){
       gainXP(p1.xpToNext);
+    }
+    if (DEV_MODE && e.code === "Digit9" && matchState === "playing"){
+      p1.specialCharge = SPECIAL_CHARGE_MAX;
     }
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Numpad1","Numpad2"].includes(e.code)) e.preventDefault();
   });
@@ -374,11 +554,13 @@
       hit:   "assets/enemy/enemy5/hit.png"
     },
     boss: {
-      idle:  "assets/enemy/boss/idle.png",
-      walk:  "assets/enemy/boss/walk.png",
-      punch: "assets/enemy/boss/punch.png",
-      kick:  "assets/enemy/boss/kick.png",
-      hit:   "assets/enemy/boss/hit.png"
+      idle:   "assets/enemy/boss/idle.png",
+      walk:   "assets/enemy/boss/walk.png",
+      punch:  "assets/enemy/boss/punch.png",
+      kick:   "assets/enemy/boss/kick.png",
+      hit:    "assets/enemy/boss/hit.png",
+      charge: "assets/enemy/boss/charge.png",
+      throw:  "assets/enemy/boss/throw.png"
     },
     paver: {
       idle:  "assets/enemy/paver/idle.png",
@@ -413,7 +595,7 @@
   // around the figure than the others). 1 = no adjustment.
   // Groups not listed here (e.g. an enemy variant with no tuning yet) default to scale 1 for every state.
   const SPRITE_SCALE = {
-    player: { idle: 1.55, walk: 1.3, punch: 1.6, kick: 1.6, hit: 1.3, fireball: 1.3, grenade: 1.5, papers: 1.5, special: 1.5 },
+    player: { idle: 1.55, walk: 1.3, punch: 1.6, kick: 1.6, hit: 1.3, fireball: 1.3, grenade: 1.5, papers: 1.5, special: 1 },
     enemy1: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy2: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy3: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
@@ -442,12 +624,19 @@
     "player:walk": { cols: 8, rows: 1, frames: 8, fps: 10 },
     "player:grenade": { cols: 3, rows: 1, frames: 3, fps: 5 }, // 3 frames over the 0.3s throw cast, one pass per throw
     "player:papers": { cols: 3, rows: 1, frames: 3, fps: 3.75 },  // 25% slower than the grenade throw
-    "player:special": { cols: 3, rows: 1, frames: 3, fps: 2 }, // 50% slower than the 0.35s cast window, so it won't finish playing before the cast ends
+    // player:special intentionally not listed -- it's now a single static image, not a sheet
     "effect:papers": { cols: 10, rows: 1, frames: 10, fps: 14 },
     "effect:fireball": { cols: 3, rows: 1, frames: 3, fps: 12 },
     "effect:special": { cols: 3, rows: 1, frames: 3 }, // one-shot: frame is driven by the burst's own lifetime, not fps -- see drawSpecialBurst
     "effect:paver": { cols: 6, rows: 1, frames: 6, fps: 10 },
-    "onhit:kickfire": { cols: 6, rows: 1, frames: 6 } // one-shot: frame driven by the effect's own progress, see drawOnHitEffect
+    "onhit:kickfire": { cols: 6, rows: 1, frames: 6 }, // one-shot: frame driven by the effect's own progress, see drawOnHitEffect
+    "paver:idle": { cols: 3, rows: 1, frames: 3, fps: 4 },
+    "paver:walk": { cols: 4, rows: 1, frames: 4, fps: 10 },
+    "paver:throw": { cols: 4, rows: 1, frames: 4, fps: 7.3 }, // ~1 pass over the 0.55s throw-pose lock (PAVER_THROW_CAST)
+    "paver:hit": { cols: 3, rows: 1, frames: 3, fps: 10.7 },  // ~1 pass over the 0.28s hit-stun window
+    "boss:walk": { cols: 4, rows: 1, frames: 4, fps: 10 },
+    "boss:charge": { cols: 3, rows: 1, frames: 3, fps: 5 },   // ~1 pass over the 0.6s charge windup (BOSS_CHARGE_WINDUP)
+    "boss:throw": { cols: 3, rows: 1, frames: 3, fps: 6 }     // ~1 pass over the 0.5s throw-pose lock (BOSS_THROW_CAST)
   };
   const spriteCache = {};
   for (const group in SPRITE_MANIFEST){
@@ -490,7 +679,8 @@
       enemyDefeat: "assets/audio/sfx/enemy_defeat.mp3",
       paverThrow:  "assets/audio/sfx/paver_throw.mp3",
       punchVolley: "assets/audio/sfx/punch_volley.mp3",
-      heal:        "assets/audio/sfx/heal.mp3"
+      heal:        "assets/audio/sfx/heal.mp3",
+      bossCharge:  "assets/audio/sfx/boss_charge.mp3"
     }
   };
   const MUSIC_VOLUME = 0.5;
@@ -618,7 +808,7 @@
         this.knockY *= (1 - Math.min(1, 8 * dt));
         clampToFloor(this);
       }
-      if (this.stateTimer <= 0 && (this.state === "hit" || this.state === "fireball" || this.state === "grenade" || this.state === "papers" || this.state === "special" || this.state === "throw")){
+      if (this.stateTimer <= 0 && (this.state === "hit" || this.state === "fireball" || this.state === "grenade" || this.state === "papers" || this.state === "special" || this.state === "throw" || this.state === "charge")){
         // the special's windup has just finished -- this is when the stun+damage payoff actually fires
         if (this.state === "special" && this.specialPending){
           spawnSpecialBurst(this);
@@ -690,7 +880,7 @@
       }
 
       let bodyColor = this.color;
-      const flashAmounts = { punch: 0.22, kick: 0.35, fireball: 0.45, grenade: 0.3, papers: 0.3, special: 0.6, throw: 0.3 };
+      const flashAmounts = { punch: 0.22, kick: 0.35, fireball: 0.45, grenade: 0.3, papers: 0.3, special: 0.6, throw: 0.3, charge: 0.4 };
       if (flashAmounts[this.state] !== undefined){
         bodyColor = lighten(this.color, flashAmounts[this.state]);
       }
@@ -771,6 +961,16 @@
         const tx = this.facing * w*0.5;
         ctx.fillRect(tx - 4*s, top + h*0.16, 8*s, 7*s);
       }
+      if (this.state === "charge"){
+        ctx.strokeStyle = flashWhite ? "#ffffff" : "#ff8a3d";
+        ctx.lineWidth = Math.max(1, 2.5*s);
+        for (let i = 0; i < 3; i++){
+          ctx.beginPath();
+          ctx.moveTo(this.facing * (w*0.55 + i*5*s), top + h*0.1);
+          ctx.lineTo(this.facing * (w*0.55 + i*5*s), top + h*0.5);
+          ctx.stroke();
+        }
+      }
 
       ctx.restore();
     }
@@ -845,8 +1045,8 @@
 
   // ---------- Attack definitions ----------
   const ATTACKS = {
-    punch: { windup: 0.06, active: 0.10, recover: 0.16, range: 30, width: 34, damage: 8,  cooldown: 0.32 },
-    kick:  { windup: 0.10, active: 0.14, recover: 0.24, range: 42, width: 40, damage: 14, cooldown: 0.55 }
+    punch: { windup: 0.06, active: 0.10, recover: 0.16, range: 30,   width: 34, damage: 8,   cooldown: 0.32 },
+    kick:  { windup: 0.10, active: 0.14, recover: 0.24, range: 36,   width: 40, damage: 7.2, cooldown: 0.55 } // range = punch*1.2, damage = punch*0.9
   };
 
   function startAttack(entity, type, isBonus){
@@ -969,21 +1169,21 @@
     { x: 48, z: 16 }
   ];
   const PUNCH_FIST_SIZE = 1.2; // multiplier on the player's own width; bump up/down to resize both fists
-  const FIREBALL_SPEED = 480;
+  let FIREBALL_SPEED = 480;
   const FIREBALL_RADIUS = 9;
-  const FIREBALL_DAMAGE = 15;
+  let FIREBALL_DAMAGE = 15;
   const FIREBALL_VISUAL_SIZE = 5; // base sprite size (independent of FIREBALL_RADIUS, which is the hit detection radius)
   const GRENADE_TRAVEL_TIME = 0.45;
   const GRENADE_MIN_DIST = 150;
   const GRENADE_MAX_DIST = 190;
   const GRENADE_FUSE_MIN = 1.5;
   const GRENADE_FUSE_MAX = 2.0;
-  const EXPLOSION_RADIUS = 95;
-  const EXPLOSION_DAMAGE = 26;
+  let EXPLOSION_RADIUS = 95;
+  let EXPLOSION_DAMAGE = 26;
   const EXPLOSION_KNOCK = 180;
-  const PAPERS_SPEED = 210;
+  let PAPERS_SPEED = 210;
   const PAPERS_RADIUS = 10;
-  const PAPERS_DAMAGE = 12;
+  let PAPERS_DAMAGE = 12;
 
   const fireballs = [];
   const grenades = [];
@@ -991,13 +1191,13 @@
   const papers = [];
 
   // ---------- Special skill: charges from landed hits, then stuns everyone so you can wail on them ----------
-  const SPECIAL_CHARGE_MAX = 10;      // hits needed to fill the bar
+  let SPECIAL_CHARGE_MAX = 10;        // hits needed to fill the bar
   const SPECIAL_ANIM_TIME = 1.5;      // windup: plays the special animation, player locked, nothing happens to enemies yet
   const SPECIAL_POSE_HOLD_BUFFER = 0.15; // tail-end safety hold, see updateCommon
-  const SPECIAL_RADIUS = 150;
-  const SPECIAL_DAMAGE = 35;
+  let SPECIAL_RADIUS = 150;
+  let SPECIAL_DAMAGE = 35;
   const SPECIAL_KNOCK = 220;
-  const SPECIAL_STUN_DURATION = 2.0;  // payoff: every enemy on the level is stunned this long once the windup ends
+  let SPECIAL_STUN_DURATION = 4.0;    // payoff: every enemy on the level is stunned this long once the windup ends
   const SPECIAL_BURST_DURATION = 0.4;
 
   const specialBursts = [];
@@ -1016,7 +1216,111 @@
     entity.specialPending = true; // payoff (damage+stun) fires in updateCommon once the windup finishes
     entity.stateTimer = SPECIAL_ANIM_TIME;
     playSfx("special");
+    if (entity === p1) triggerSpecialPopup();
     return true;
+  }
+
+  // ---------- Special-skill screen popup: pop in full-screen, hold briefly, then crumble apart ----------
+  const SPECIAL_POPUP_POP_TIME = 0.12;
+  const SPECIAL_POPUP_HOLD_TIME = 1.5;
+  const SPECIAL_POPUP_CRUMBLE_TIME = 0.45;
+  const SPECIAL_POPUP_DURATION = SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME + SPECIAL_POPUP_CRUMBLE_TIME;
+  const SPECIAL_POPUP_CRUMBLE_COLS = 12;
+  const SPECIAL_POPUP_CRUMBLE_ROWS = 7;
+  const SPECIAL_POPUP_CRUMBLE_GRAVITY = 1100; // px/s^2, how fast pieces accelerate downward
+  const SPECIAL_POPUP_CRUMBLE_STAGGER = 0.15; // seconds, random per-tile delay before it starts falling
+  // Shifts the popup's center point, in pixels. x: positive = right, negative = left.
+  // z: positive = higher up, negative = lower. { x:0, z:0 } is dead-center of the screen.
+  const SPECIAL_POPUP_OFFSET = { x: 0, z: 0 };
+  // Drawn slightly larger than a strict "cover" fit so there's vertical slack to pan through
+  // without ever exposing empty space above/below during the scroll.
+  const SPECIAL_POPUP_OVERSCAN = 1;
+  // How fast the popup gently pans downward while held, in pixels/second. Higher = faster scroll.
+  // Automatically clamped to whatever vertical slack SPECIAL_POPUP_OVERSCAN provides, so cranking
+  // this up just makes it reach the bottom sooner rather than exposing empty edges.
+  const SPECIAL_POPUP_SCROLL_SPEED = 250;
+
+  let specialPopupTimer = 0; // > 0 while showing; counts down from SPECIAL_POPUP_DURATION
+  let specialPopupTiles = null; // per-tile random fall parameters, generated fresh each trigger
+
+  function triggerSpecialPopup(){
+    specialPopupTimer = SPECIAL_POPUP_DURATION;
+    const tiles = [];
+    for (let row = 0; row < SPECIAL_POPUP_CRUMBLE_ROWS; row++){
+      for (let col = 0; col < SPECIAL_POPUP_CRUMBLE_COLS; col++){
+        tiles.push({
+          col, row,
+          delay: Math.random() * SPECIAL_POPUP_CRUMBLE_STAGGER,
+          vx: (Math.random() * 2 - 1) * 70,   // sideways drift, px/s
+          vy: Math.random() * 40,             // small initial downward nudge, px/s
+          rotSpeed: (Math.random() * 2 - 1) * 4 // rad/s
+        });
+      }
+    }
+    specialPopupTiles = tiles;
+  }
+
+  function updateSpecialPopup(dt){
+    if (specialPopupTimer > 0) specialPopupTimer -= dt;
+  }
+
+  function drawSpecialPopup(){
+    if (specialPopupTimer <= 0 || !isReady(specialPopupImg)) return;
+    const elapsed = SPECIAL_POPUP_DURATION - specialPopupTimer;
+
+    // "cover" fit: fills the whole canvas, cropping overflow rather than stretching/distorting
+    // (overscanned a bit so there's room to pan vertically without exposing empty edges)
+    const cover = Math.max(W / specialPopupImg.naturalWidth, H / specialPopupImg.naturalHeight) * SPECIAL_POPUP_OVERSCAN;
+    const fullW = specialPopupImg.naturalWidth * cover;
+    const fullH = specialPopupImg.naturalHeight * cover;
+    const centerX = W/2 + SPECIAL_POPUP_OFFSET.x, centerY = H/2 - SPECIAL_POPUP_OFFSET.z;
+    const baseX = centerX - fullW/2;
+
+    // Gently pans the image downward (revealing more of its bottom) at SPECIAL_POPUP_SCROLL_SPEED
+    // while held, then freezes -- the crumble tiles pick up from wherever the pan left off.
+    const maxScrollY = Math.max(0, (fullH - H) / 2);
+    const scrollElapsed = Math.max(0, Math.min(elapsed, SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME) - SPECIAL_POPUP_POP_TIME);
+    const scrollY = Math.min(maxScrollY, SPECIAL_POPUP_SCROLL_SPEED * scrollElapsed);
+    const baseY = (centerY - fullH/2) - scrollY;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false; // keep pixel art crisp/blocky instead of blurred
+
+    if (elapsed < SPECIAL_POPUP_POP_TIME){
+      const t = elapsed / SPECIAL_POPUP_POP_TIME;
+      const w = fullW * t, h = fullH * t;
+      ctx.drawImage(specialPopupImg, centerX - w/2, centerY - h/2, w, h);
+    } else if (elapsed < SPECIAL_POPUP_POP_TIME + SPECIAL_POPUP_HOLD_TIME){
+      ctx.drawImage(specialPopupImg, baseX, baseY, fullW, fullH);
+    } else if (specialPopupTiles){
+      const crumbleT = elapsed - SPECIAL_POPUP_POP_TIME - SPECIAL_POPUP_HOLD_TIME;
+      const tileW = fullW / SPECIAL_POPUP_CRUMBLE_COLS;
+      const tileH = fullH / SPECIAL_POPUP_CRUMBLE_ROWS;
+      const srcTileW = specialPopupImg.naturalWidth / SPECIAL_POPUP_CRUMBLE_COLS;
+      const srcTileH = specialPopupImg.naturalHeight / SPECIAL_POPUP_CRUMBLE_ROWS;
+      for (const tile of specialPopupTiles){
+        const dx = baseX + tile.col * tileW;
+        const dy = baseY + tile.row * tileH;
+        const t = crumbleT - tile.delay;
+        if (t <= 0){
+          ctx.globalAlpha = 1;
+          ctx.drawImage(specialPopupImg, tile.col*srcTileW, tile.row*srcTileH, srcTileW, srcTileH, dx, dy, tileW, tileH);
+          continue;
+        }
+        const fallSpan = Math.max(0.001, SPECIAL_POPUP_CRUMBLE_TIME - tile.delay);
+        const alpha = Math.max(0, 1 - t / fallSpan);
+        if (alpha <= 0) continue;
+        const fallX = tile.vx * t;
+        const fallY = tile.vy * t + 0.5 * SPECIAL_POPUP_CRUMBLE_GRAVITY * t * t;
+        ctx.globalAlpha = alpha;
+        ctx.save();
+        ctx.translate(dx + tileW/2 + fallX, dy + tileH/2 + fallY);
+        ctx.rotate(tile.rotSpeed * t);
+        ctx.drawImage(specialPopupImg, tile.col*srcTileW, tile.row*srcTileH, srcTileW, srcTileH, -tileW/2, -tileH/2, tileW, tileH);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
   }
 
   function spawnSpecialBurst(owner){
@@ -1287,6 +1591,18 @@
       ctx.beginPath();
       ctx.arc(0, 0, 14 * s * grow, -0.9, 0.9);
       ctx.stroke();
+      ctx.strokeStyle = "#fff2c2";
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.arc(0, 0, 9 * s * grow, -0.7, 0.7);
+      ctx.stroke();
+      for (let i = 0; i < 3; i++){
+        const a = -0.6 + i * 0.6;
+        ctx.fillStyle = "#ffb23d";
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * 17 * s * grow, Math.sin(a) * 17 * s * grow, 1.6 * s, 0, Math.PI*2);
+        ctx.fill();
+      }
     } else if (e.type === "fireball"){
       ctx.fillStyle = "#ffb23d";
       for (let i = 0; i < 5; i++){
@@ -1645,7 +1961,7 @@
 
   const pavers = [];
 
-  function spawnPaver(owner, targetX, targetY){
+  function spawnPaver(owner, targetX, targetY, opts){
     const startX = owner.x + owner.facing * (owner.w*0.5 + 10 + EFFECT_SPAWN_OFFSET.paver.x);
     const startY = owner.y - owner.h*0.5 - EFFECT_SPAWN_OFFSET.paver.z;
     const dist = Math.hypot(targetX - startX, targetY - startY);
@@ -1657,8 +1973,10 @@
       elapsed: 0,
       progress: 0,
       travelTime,
-      r: PAVER_RADIUS,
-      damage: PAVER_DAMAGE,
+      r: (opts && opts.radius) || PAVER_RADIUS,
+      damage: (opts && opts.damage) || PAVER_DAMAGE,
+      knock: (opts && opts.knock) || PAVER_KNOCK,
+      visualScale: (opts && opts.visualScale) || 1, // lets a "big stone" throw reuse the same projectile, just bigger
       hit: false,
       landed: false
     });
@@ -1678,7 +1996,7 @@
           const targetBox = { x: pl.x - pl.w/2, y: pl.y - pl.h*0.3, w: pl.w, h: pl.h*0.7 };
           const hbBox = { x: pv.x - pv.r, y: pv.y - 20, w: pv.r*2, h: 40 };
           if (boxesOverlap(hbBox, targetBox)){
-            pl.takeHit(pv.damage, pv.x, pv.y, PAVER_KNOCK);
+            pl.takeHit(pv.damage, pv.x, pv.y, pv.knock);
             pv.hit = true;
             spawnOnHitEffect(pl.x, pl.y - pl.h*0.4, "paver");
             break;
@@ -1700,7 +2018,7 @@
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.beginPath();
-    ctx.ellipse(pv.x, pv.y + 3*s, 7*s, 3*s, 0, 0, Math.PI*2);
+    ctx.ellipse(pv.x, pv.y + 3*s, 7*s*pv.visualScale, 3*s*pv.visualScale, 0, 0, Math.PI*2);
     ctx.fill();
     ctx.restore();
 
@@ -1720,15 +2038,15 @@
         sx = col * sw;
         sy = row * sh;
       }
-      const size = pv.r * s * 3.6;
+      const size = pv.r * s * 3.6 * pv.visualScale;
       const w = size * (sw / sh);
       ctx.drawImage(sprite, sx, sy, sw, sh, -w/2, -size/2, w, size);
     } else {
       ctx.fillStyle = "#6b6560";
-      ctx.fillRect(-6*s, -5*s, 12*s, 10*s);
+      ctx.fillRect(-6*s*pv.visualScale, -5*s*pv.visualScale, 12*s*pv.visualScale, 10*s*pv.visualScale);
       ctx.strokeStyle = "#3a3632";
       ctx.lineWidth = 1;
-      ctx.strokeRect(-6*s, -5*s, 12*s, 10*s);
+      ctx.strokeRect(-6*s*pv.visualScale, -5*s*pv.visualScale, 12*s*pv.visualScale, 10*s*pv.visualScale);
     }
     ctx.restore();
   }
@@ -1921,6 +2239,29 @@
   }
 
   // ---------- Boss ----------
+  // Cycles between three options based on range and cooldowns: melee up close, a telegraphed
+  // charge/rush attack at medium range, and a big-stone throw at long range.
+  const BOSS_CHARGE_MIN_RANGE = 110;  // won't charge if already close enough to just melee
+  const BOSS_CHARGE_MAX_RANGE = 420;  // won't charge from absurdly far away
+  const BOSS_CHARGE_WINDUP = 0.6;     // telegraph before the dash begins -- the player's window to get clear
+  const BOSS_CHARGE_SPEED = 520;      // dash speed, far above normal walk speed
+  const BOSS_CHARGE_DURATION = 0.6;   // max dash time (safety cap if it never connects)
+  const BOSS_CHARGE_HIT_RADIUS = 42;
+  const BOSS_CHARGE_DAMAGE = 22;
+  const BOSS_CHARGE_KNOCK = 260;
+  const BOSS_CHARGE_COOLDOWN_MIN = 4;
+  const BOSS_CHARGE_COOLDOWN_MAX = 6;
+
+  const BOSS_THROW_RANGE_MIN = 200;   // prefers throwing from beyond charge range
+  const BOSS_THROW_WINDUP = 0.35;
+  const BOSS_THROW_CAST = 0.5;
+  const BOSS_THROW_COOLDOWN_MIN = 3;
+  const BOSS_THROW_COOLDOWN_MAX = 4.5;
+  const BOSS_STONE_DAMAGE = 18;
+  const BOSS_STONE_RADIUS = 14;
+  const BOSS_STONE_KNOCK = 180;
+  const BOSS_STONE_VISUAL_SCALE = 1.9; // bigger than a regular paver, since this is a "big stone"
+
   class Boss extends Enemy {
     constructor(x, y){
       super(x, y, "boss"); // "boss" sprite group, so it's a distinct art slot from enemy1-5
@@ -1933,6 +2274,127 @@
       this.color = "#5a1f3d";
       this.darkColor = "#2e0f1f";
       this.damageMul = 1.6; // hits harder than a regular grunt in melee
+      this.chargeCooldownTimer = 1.5 + Math.random();
+      this.throwCooldownTimer = 1 + Math.random();
+      this.pendingCharge = null; // {timer, dx, dy} while winding up
+      this.chargeActive = null;  // {timer, dx, dy, hasHit} while dashing
+      this.pendingThrow = null;  // {timer, x, y} while winding up a stone throw
+    }
+
+    cancelSpecialMoves(){
+      this.pendingCharge = null;
+      this.chargeActive = null;
+      this.pendingThrow = null;
+    }
+
+    updateAI(dt, players){
+      if (!this.alive) return;
+
+      // cooldowns always tick, regardless of what the boss is currently doing
+      if (this.chargeCooldownTimer > 0) this.chargeCooldownTimer -= dt;
+      if (this.throwCooldownTimer > 0) this.throwCooldownTimer -= dt;
+
+      if (this.stunTimer > 0){
+        if (this.state !== "hit") this.state = "idle";
+        this.cancelSpecialMoves();
+        return;
+      }
+      if (this.state === "hit"){
+        this.cancelSpecialMoves();
+        return;
+      }
+
+      // an active dash overrides everything else until it finishes or connects
+      if (this.chargeActive){
+        this.updateChargeDash(dt, players);
+        return;
+      }
+      if (this.pendingCharge){
+        this.pendingCharge.timer -= dt;
+        if (this.pendingCharge.timer <= 0){
+          const p = this.pendingCharge;
+          this.chargeActive = { dx: p.dx, dy: p.dy, timer: BOSS_CHARGE_DURATION, hasHit: false };
+          this.pendingCharge = null;
+          playSfx("bossCharge");
+        }
+        return;
+      }
+      if (this.pendingThrow){
+        this.pendingThrow.timer -= dt;
+        if (this.pendingThrow.timer <= 0){
+          spawnPaver(this, this.pendingThrow.x, this.pendingThrow.y, {
+            damage: BOSS_STONE_DAMAGE, radius: BOSS_STONE_RADIUS, knock: BOSS_STONE_KNOCK, visualScale: BOSS_STONE_VISUAL_SCALE
+          });
+          playSfx("paverThrow");
+          this.pendingThrow = null;
+        }
+        return;
+      }
+      if (this.state === "throw" || this.state === "charge" || this.state === "punch" || this.state === "kick") return;
+
+      const alivePlayers = players.filter(p => p.alive);
+      if (alivePlayers.length === 0){ this.state = "idle"; return; }
+
+      let target = alivePlayers[0];
+      let bestDist = Infinity;
+      for (const p of alivePlayers){
+        const d = Math.hypot(p.x - this.x, p.y - this.y);
+        if (d < bestDist){ bestDist = d; target = p; }
+      }
+
+      const dx = target.x - this.x;
+      const dy = target.y - this.y;
+      const dist = Math.hypot(dx, dy);
+      this.facing = dx >= 0 ? 1 : -1;
+
+      if (dist <= this.attackRange){
+        this.decisionTimer -= dt;
+        if (this.decisionTimer <= 0 && this.attackCooldown <= 0){
+          startAttack(this, Math.random() < 0.35 ? "kick" : "punch");
+          this.decisionTimer = 0.6 + Math.random() * 0.6;
+        }
+      } else if (this.chargeCooldownTimer <= 0 && dist >= BOSS_CHARGE_MIN_RANGE && dist <= BOSS_CHARGE_MAX_RANGE){
+        const nx = dx / (dist || 1), ny = dy / (dist || 1);
+        this.state = "charge";
+        this.stateTimer = BOSS_CHARGE_WINDUP + BOSS_CHARGE_DURATION;
+        this.pendingCharge = { timer: BOSS_CHARGE_WINDUP, dx: nx, dy: ny };
+        this.chargeCooldownTimer = BOSS_CHARGE_COOLDOWN_MIN + Math.random() * (BOSS_CHARGE_COOLDOWN_MAX - BOSS_CHARGE_COOLDOWN_MIN);
+      } else if (this.throwCooldownTimer <= 0 && dist >= BOSS_THROW_RANGE_MIN){
+        this.state = "throw";
+        this.stateTimer = BOSS_THROW_CAST;
+        this.pendingThrow = { timer: BOSS_THROW_WINDUP, x: target.x, y: target.y };
+        this.throwCooldownTimer = BOSS_THROW_COOLDOWN_MIN + Math.random() * (BOSS_THROW_COOLDOWN_MAX - BOSS_THROW_COOLDOWN_MIN);
+      } else {
+        const nx = dx / (dist || 1), ny = dy / (dist || 1);
+        this.x += nx * this.speed * dt;
+        this.y += ny * this.speed * dt * 0.72;
+        clampToFloor(this);
+        this.state = "walk";
+      }
+    }
+
+    updateChargeDash(dt, players){
+      const c = this.chargeActive;
+      c.timer -= dt;
+      this.x += c.dx * BOSS_CHARGE_SPEED * dt;
+      this.y += c.dy * BOSS_CHARGE_SPEED * dt * 0.72;
+      clampToFloor(this);
+      this.state = "charge";
+
+      if (!c.hasHit){
+        for (const p of players){
+          if (!p.alive) continue;
+          const dist = Math.hypot(p.x - this.x, p.y - this.y);
+          if (dist <= BOSS_CHARGE_HIT_RADIUS){
+            p.takeHit(BOSS_CHARGE_DAMAGE, this.x, this.y, BOSS_CHARGE_KNOCK);
+            c.hasHit = true;
+            break;
+          }
+        }
+      }
+      if (c.timer <= 0){
+        this.chargeActive = null;
+      }
     }
   }
 
@@ -2078,7 +2540,7 @@
     pendingSkillChoices = null;
     levelIndex = 0;
     enemies = spawnWave(levelIndex);
-    fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0; healthPacks.length = 0;
+    fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0; healthPacks.length = 0; specialPopupTimer = 0;
     matchState = "playing";
     playMusic("level1");
   }
@@ -2341,7 +2803,7 @@
     const w = 150, h = 10, gap = 8;
     let y = 30;
     for (let i = 0; i < grunts.length; i++){
-      drawHealthBar(W - 30 - w, y, w, h, grunts[i].hp, grunts[i].maxHp, i === 0 ? "ENEMIES" : null, "#e5384f");
+      drawHealthBar(W - 30 - w, y, w, h, grunts[i].hp, grunts[i].maxHp, i === 0 ? "MANIFESTANTS" : null, "#e5384f");
       y += h + gap;
     }
   }
@@ -2510,7 +2972,7 @@
   }
 
   function drawHUD(){
-    drawHealthBar(30, 30, 200, 16, p1.hp, p1.maxHp, "PLAYER", "#3b6bff");
+    drawHealthBar(30, 30, 200, 16, p1.hp, p1.maxHp, "JFC", "#3b6bff");
     let hudY = drawSkillCooldownBars(30, 52, p1);
     hudY = drawXPBar(30, hudY, p1);
     drawPunchStreak(30, hudY, p1);
@@ -2522,7 +2984,7 @@
       ctx.font = "bold 11px 'Arial Narrow', Arial, sans-serif";
       ctx.textAlign = "right";
       ctx.fillStyle = "#e5384f";
-      ctx.fillText("DEV MODE — 0: grant level", W - 12, H - 12);
+      ctx.fillText("DEV MODE — 0: grant level, 9: fill special", W - 12, H - 12);
       ctx.restore();
     }
 
@@ -2686,6 +3148,7 @@
       updateGrenades(dt);
       updatePapers(dt);
       updateSpecialBursts(dt);
+      updateSpecialPopup(dt);
       updateOnHitEffects(dt);
       updateFloatingTexts(dt);
       updatePavers(dt);
@@ -2707,7 +3170,7 @@
       if (keys.has("Enter")){
         levelIndex++;
         enemies = spawnWave(levelIndex);
-        fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0; healthPacks.length = 0;
+        fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0; healthPacks.length = 0; specialPopupTimer = 0;
         // clear out whatever mid-animation state the player was frozen in while the wave-clear screen was up
         p1.state = "idle";
         p1.poseHold = false;
@@ -2746,10 +3209,68 @@
       for (const e of onHitEffects) drawOnHitEffect(e);
       for (const f of floatingTexts) drawFloatingText(f);
       drawHUD();
+      drawSpecialPopup();
     }
 
     requestAnimationFrame(frame);
   }
+
+  // ---------- Dev-mode admin panel: live-tune skill stats (` to toggle, only when DEV_MODE) ----------
+  function initAdminPanel(){
+    const btn = document.getElementById("adminBtn");
+    if (!DEV_MODE) return;
+    btn.style.display = "";
+    const overlay = document.getElementById("adminOverlay");
+    const closeBtn = document.getElementById("adminClose");
+    const resetBtn = document.getElementById("adminReset");
+
+    // one row per tunable: get/set pair drives both populating the input and applying edits.
+    // ATTACKS/SKILLS entries mutate an existing object property; the rest are `let`-declared
+    // module constants reassigned directly (see their declarations for why each is a `let`).
+    const fields = [
+      { id: "adm-punch-range",       get: () => ATTACKS.punch.range,       set: v => ATTACKS.punch.range = v },
+      { id: "adm-punch-damage",      get: () => ATTACKS.punch.damage,      set: v => ATTACKS.punch.damage = v },
+      { id: "adm-punch-cooldown",    get: () => ATTACKS.punch.cooldown,    set: v => ATTACKS.punch.cooldown = v },
+      { id: "adm-kick-range",        get: () => ATTACKS.kick.range,        set: v => ATTACKS.kick.range = v },
+      { id: "adm-kick-damage",       get: () => ATTACKS.kick.damage,       set: v => ATTACKS.kick.damage = v },
+      { id: "adm-kick-cooldown",     get: () => ATTACKS.kick.cooldown,     set: v => ATTACKS.kick.cooldown = v },
+      { id: "adm-fireball-damage",   get: () => FIREBALL_DAMAGE,           set: v => FIREBALL_DAMAGE = v },
+      { id: "adm-fireball-speed",    get: () => FIREBALL_SPEED,            set: v => FIREBALL_SPEED = v },
+      { id: "adm-fireball-cooldown", get: () => SKILLS.fireball.cooldown,  set: v => SKILLS.fireball.cooldown = v },
+      { id: "adm-grenade-damage",    get: () => EXPLOSION_DAMAGE,          set: v => EXPLOSION_DAMAGE = v },
+      { id: "adm-grenade-radius",    get: () => EXPLOSION_RADIUS,          set: v => EXPLOSION_RADIUS = v },
+      { id: "adm-grenade-cooldown",  get: () => SKILLS.grenade.cooldown,   set: v => SKILLS.grenade.cooldown = v },
+      { id: "adm-papers-damage",     get: () => PAPERS_DAMAGE,             set: v => PAPERS_DAMAGE = v },
+      { id: "adm-papers-speed",      get: () => PAPERS_SPEED,              set: v => PAPERS_SPEED = v },
+      { id: "adm-papers-cooldown",   get: () => SKILLS.papers.cooldown,    set: v => SKILLS.papers.cooldown = v },
+      { id: "adm-special-charge",    get: () => SPECIAL_CHARGE_MAX,        set: v => SPECIAL_CHARGE_MAX = v },
+      { id: "adm-special-damage",    get: () => SPECIAL_DAMAGE,            set: v => SPECIAL_DAMAGE = v },
+      { id: "adm-special-radius",    get: () => SPECIAL_RADIUS,            set: v => SPECIAL_RADIUS = v },
+      { id: "adm-special-stun",      get: () => SPECIAL_STUN_DURATION,     set: v => SPECIAL_STUN_DURATION = v }
+    ];
+    const defaults = fields.map(f => f.get()); // snapshot at load, for the Reset button
+    const populate = () => fields.forEach(f => { document.getElementById(f.id).value = f.get(); });
+
+    fields.forEach(f => {
+      document.getElementById(f.id).addEventListener("input", (e) => {
+        const v = parseFloat(e.target.value);
+        if (!Number.isNaN(v)) f.set(v);
+      });
+    });
+    resetBtn.addEventListener("click", () => { fields.forEach((f, i) => f.set(defaults[i])); populate(); });
+
+    const open = () => { populate(); overlay.classList.add("open"); };
+    const close = () => overlay.classList.remove("open");
+    btn.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Backquote"){ e.preventDefault(); overlay.classList.contains("open") ? close() : open(); }
+      else if (e.code === "Escape") close();
+    });
+  }
+  initAdminPanel();
+
   requestAnimationFrame(frame);
 })();
 </script>
