@@ -1238,7 +1238,7 @@
   // How fast the popup gently pans downward while held, in pixels/second. Higher = faster scroll.
   // Automatically clamped to whatever vertical slack SPECIAL_POPUP_OVERSCAN provides, so cranking
   // this up just makes it reach the bottom sooner rather than exposing empty edges.
-  const SPECIAL_POPUP_SCROLL_SPEED = 250;
+  const SPECIAL_POPUP_SCROLL_SPEED = 350;
 
   let specialPopupTimer = 0; // > 0 while showing; counts down from SPECIAL_POPUP_DURATION
   let specialPopupTiles = null; // per-tile random fall parameters, generated fresh each trigger
