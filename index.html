@@ -105,9 +105,156 @@
     font-family:inherit;
     color:var(--paper);
   }
+
+  .roadmap-btn{
+    position:fixed;
+    top:16px;
+    right:16px;
+    z-index:10;
+    background:var(--panel);
+    border:2px solid var(--gold-dim);
+    color:var(--gold);
+    font-family:inherit;
+    font-weight:bold;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding:8px 14px;
+    border-radius:5px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,0.45);
+  }
+  .roadmap-btn:hover{ border-color:var(--gold); }
+  .roadmap-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+  .roadmap-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:20;
+    background:rgba(10,6,9,0.78);
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .roadmap-overlay.open{ display:flex; }
+  .roadmap-card{
+    width:100%;
+    max-width:560px;
+    max-height:82vh;
+    overflow-y:auto;
+    background:var(--panel);
+    border:2px solid var(--gold-dim);
+    border-radius:8px;
+    padding:22px 26px 26px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.55);
+  }
+  .roadmap-card h2{
+    margin:0 0 2px;
+    font-family:"Arial Black",Impact,"Segoe UI",sans-serif;
+    letter-spacing:1.5px;
+    color:var(--gold);
+    font-size:19px;
+  }
+  .roadmap-card .roadmap-sub{
+    font-size:11px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    margin-bottom:18px;
+  }
+  .roadmap-group{ margin-bottom:16px; }
+  .roadmap-group:last-child{ margin-bottom:0; }
+  .roadmap-group h3{
+    margin:0 0 6px;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--paper);
+    border-bottom:1px solid var(--panel-line);
+    padding-bottom:4px;
+  }
+  .roadmap-group ul{
+    margin:0;
+    padding-left:18px;
+    font-size:13px;
+    line-height:1.6;
+    color:var(--paper-dim);
+  }
+  .roadmap-group li::marker{ color:var(--gold-dim); }
+  .roadmap-close{
+    position:absolute;
+    top:14px;
+    right:16px;
+    background:none;
+    border:none;
+    color:var(--paper-dim);
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .roadmap-close:hover{ color:var(--paper); }
+  .roadmap-card{ position:relative; }
 </style>
 </head>
 <body>
+
+<button class="roadmap-btn" id="roadmapBtn" type="button" aria-haspopup="dialog" aria-controls="roadmapOverlay">Roadmap</button>
+<div class="roadmap-overlay" id="roadmapOverlay" role="dialog" aria-modal="true" aria-labelledby="roadmapTitle">
+  <div class="roadmap-card">
+    <button class="roadmap-close" id="roadmapClose" type="button" aria-label="Close roadmap">×</button>
+    <h2 id="roadmapTitle">Roadmap</h2>
+    <div class="roadmap-sub">What's left to build</div>
+
+    <div class="roadmap-group">
+      <h3>Content</h3>
+      <ul>
+        <li>Add more stages beyond "Manif' de rue" (currently 3 waves + 1 boss)</li>
+        <li>Give the boss unique attack patterns (currently reuses grunt AI)</li>
+        <li>Extend the perk-tree/unlock screen to future levels</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-group">
+      <h3>Skill tree</h3>
+      <ul>
+        <li>Add leveling trees for grenade and special (only punch &amp; kick have real progression)</li>
+        <li>Turn fireball/papers into full trees instead of a single unlock</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-group">
+      <h3>Art</h3>
+      <ul>
+        <li>Walk/punch/kick/hit poses for enemy1–5 and the paver enemy (only idle exists for each)</li>
+        <li>Boss art (currently 100% placeholder)</li>
+        <li>Grenade &amp; special effect sprites, health pack icon</li>
+        <li>On-hit impact sprites (all still procedural fallbacks)</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-group">
+      <h3>Audio</h3>
+      <ul>
+        <li>Menu &amp; level music</li>
+        <li>All sound effects (punch, kick, fireball, grenade, papers, special, enemy hit/defeat, paver throw, punch volley, heal) — none exist yet</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<script>
+  (function(){
+    const btn = document.getElementById("roadmapBtn");
+    const overlay = document.getElementById("roadmapOverlay");
+    const closeBtn = document.getElementById("roadmapClose");
+    const open = () => overlay.classList.add("open");
+    const close = () => overlay.classList.remove("open");
+    btn.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    window.addEventListener("keydown", (e) => { if (e.code === "Escape") close(); });
+  })();
+</script>
 
 <div class="stage">
   <div class="title-row">
