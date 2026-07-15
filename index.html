@@ -2204,7 +2204,7 @@
       { key: "H", name: "FIREBALL", cd: player.fireballCooldown, max: SKILLS.fireball.cooldown, color: "#f2941f", locked: !player.fireballUnlocked },
       { key: "L", name: "GRENADE",  cd: player.grenadeCooldown,  max: SKILLS.grenade.cooldown,  color: "#8fae3d", locked: false },
       { key: "U", name: "PAPERS",   cd: player.papersCooldown,   max: SKILLS.papers.cooldown,   color: "#c9c2b3", locked: !player.papersUnlocked }
-    ];
+    ].filter(s => !s.locked); // hide rows for skills not yet unlocked, rather than showing a locked placeholder
     const w = 120, h = 12, gap = 6;
     let py = y;
     ctx.save();
@@ -2218,24 +2218,23 @@
       ctx.fillStyle = "rgba(20,14,18,0.85)";
       roundRect(ctx, x-2, py-2, w+4, h+4, 3);
       ctx.fill();
-      ctx.strokeStyle = s.locked ? "#3a3236" : (ready ? s.color : "#4a3540");
+      ctx.strokeStyle = ready ? s.color : "#4a3540";
       ctx.lineWidth = 1.5;
       roundRect(ctx, x-2, py-2, w+4, h+4, 3);
       ctx.stroke();
 
       ctx.fillStyle = "#2a1e24";
       ctx.fillRect(x, py, w, h);
-      if (!s.locked){
-        ctx.fillStyle = s.color;
-        ctx.fillRect(x, py, w * pct, h);
-      }
+      ctx.fillStyle = s.color;
+      ctx.fillRect(x, py, w * pct, h);
 
-      ctx.fillStyle = s.locked ? "rgba(255,255,255,0.35)" : (ready ? "#1a1410" : "rgba(255,255,255,0.75)");
-      ctx.fillText(s.locked ? `${s.key} ${s.name} (LOCKED)` : `${s.key} ${s.name}`, x + 5, py + h/2 + 1);
+      ctx.fillStyle = ready ? "#1a1410" : "rgba(255,255,255,0.75)";
+      ctx.fillText(`${s.key} ${s.name}`, x + 5, py + h/2 + 1);
 
       py += h + gap;
     }
     ctx.restore();
+    return py; // bottom edge, so callers can position whatever comes next without a gap
   }
 
   function drawMenu(){
@@ -2349,6 +2348,7 @@
     ctx.textBaseline = "middle";
     ctx.fillText(`XP ${Math.floor(player.xp)}/${player.xpToNext}`, x + 4, y + h/2 + 1);
     ctx.restore();
+    return y + h + 10; // bottom edge + gap, for chaining
   }
 
   function drawPunchStreak(x, y, player){
@@ -2364,9 +2364,9 @@
 
   function drawHUD(){
     drawHealthBar(30, 30, 200, 16, p1.hp, p1.maxHp, "PLAYER", "#3b6bff");
-    drawSkillCooldownBars(30, 52, p1);
-    drawXPBar(30, 112, p1);
-    drawPunchStreak(30, 138, p1);
+    let hudY = drawSkillCooldownBars(30, 52, p1);
+    hudY = drawXPBar(30, hudY, p1);
+    drawPunchStreak(30, hudY, p1);
     drawEnemyHUD(enemies);
     drawSpecialBar();
 
