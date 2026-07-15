@@ -245,7 +245,8 @@
       papers:   "assets/effects/paperwork.png",
       special:  "assets/effects/special.png",
       paver:    "assets/effects/paver.png",
-      punchFist: "assets/effects/punch_fist.png"
+      punchFist: "assets/effects/punch_fist.png",
+      healthPack: "assets/effects/health_pack.png"
     },
     onhit: {
       punch:    "assets/effects/onhit/punch.png",
@@ -255,7 +256,7 @@
       papers:   "assets/effects/onhit/papers.png",
       special:  "assets/effects/onhit/special.png",
       paver:    "assets/effects/onhit/paver.png",
-      kickfire: "assets/effects/onhit/kickfire.png",
+      kickfire: "assets/effects/firearc.png",
       punchVolley: "assets/effects/onhit/punch_volley.png"
     }
   };
@@ -272,7 +273,7 @@
     enemy4: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy5: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     boss:   { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
-    paver:  { idle: 2, walk: 2, throw: 2, hit: 2 }
+    paver:  { idle: 1.6, walk: 1.6, throw: 1.6, hit: 1.6 }
   };
 
   // Per-pose position dial, in pixels. By default every sprite is centered horizontally
@@ -298,7 +299,8 @@
     "effect:papers": { cols: 10, rows: 1, frames: 10, fps: 14 },
     "effect:fireball": { cols: 3, rows: 1, frames: 3, fps: 12 },
     "effect:special": { cols: 3, rows: 1, frames: 3 }, // one-shot: frame is driven by the burst's own lifetime, not fps -- see drawSpecialBurst
-    "effect:paver": { cols: 6, rows: 1, frames: 6, fps: 10 }
+    "effect:paver": { cols: 6, rows: 1, frames: 6, fps: 10 },
+    "onhit:kickfire": { cols: 6, rows: 1, frames: 6 } // one-shot: frame driven by the effect's own progress, see drawOnHitEffect
   };
   const spriteCache = {};
   for (const group in SPRITE_MANIFEST){
@@ -340,7 +342,8 @@
       enemyHit:    "assets/audio/sfx/enemy_hit.mp3",
       enemyDefeat: "assets/audio/sfx/enemy_defeat.mp3",
       paverThrow:  "assets/audio/sfx/paver_throw.mp3",
-      punchVolley: "assets/audio/sfx/punch_volley.mp3"
+      punchVolley: "assets/audio/sfx/punch_volley.mp3",
+      heal:        "assets/audio/sfx/heal.mp3"
     }
   };
   const MUSIC_VOLUME = 0.5;
@@ -437,6 +440,9 @@
         if (isEnemy){
           playSfx("enemyDefeat");
           awardXP(this);
+          if (Math.random() < HEALTH_PACK_DROP_CHANCE){
+            spawnHealthPack(this.x, this.y);
+          }
         }
       } else if (isEnemy){
         playSfx("enemyHit");
@@ -483,26 +489,30 @@
     }
     drawVolleyFist(ctx){
       const s = this.scale;
-      const x = this.x + PUNCH_FIST_OFFSET.x * this.facing;
-      const y = this.y - this.h * s - PUNCH_FIST_OFFSET.z; // "just above" the punch animation
+      const w = this.w * s;
+      const armY = this.y - this.h * s * 0.82; // roughly chest/arm height, matching the normal punch telegraph
       const sprite = getSprite("effect", "punchFist");
-      ctx.save();
-      ctx.translate(x, y);
-      if (this.facing < 0) ctx.scale(-1, 1);
-      if (sprite){
-        const size = this.w * s * PUNCH_FIST_SIZE;
-        const w = size * (sprite.naturalWidth / sprite.naturalHeight);
-        ctx.drawImage(sprite, -w/2, -size/2, w, size);
-      } else {
-        ctx.fillStyle = "#fff2c2";
-        ctx.beginPath();
-        ctx.arc(0, 0, Math.max(6, this.w * s * 0.24 * PUNCH_FIST_SIZE), 0, Math.PI*2);
-        ctx.fill();
-        ctx.strokeStyle = "#7a2f0f";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      for (const f of PUNCH_VOLLEY_FISTS){
+        const x = this.x + this.facing * f.x;
+        const y = armY - f.z;
+        ctx.save();
+        ctx.translate(x, y);
+        if (this.facing < 0) ctx.scale(-1, 1);
+        if (sprite){
+          const size = w * PUNCH_FIST_SIZE;
+          const imgW = size * (sprite.naturalWidth / sprite.naturalHeight);
+          ctx.drawImage(sprite, -imgW/2, -size/2, imgW, size);
+        } else {
+          ctx.fillStyle = "#fff2c2";
+          ctx.beginPath();
+          ctx.arc(0, 0, Math.max(6, w * 0.24 * PUNCH_FIST_SIZE), 0, Math.PI*2);
+          ctx.fill();
+          ctx.strokeStyle = "#7a2f0f";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        ctx.restore();
       }
-      ctx.restore();
     }
     drawBody(ctx){
       const s = this.scale;
@@ -722,9 +732,7 @@
     entity._atkPhaseTimer += dt;
     const t = entity._atkPhaseTimer;
     if (t >= def.windup && t < def.windup + def.active){
-      let reach = def.range;
-      // kick_lvl_1: +25% reach (only players carry a kickLevel, so this is a no-op for enemies)
-      if (entity._atkType === "kick" && entity.kickLevel >= 1) reach *= 1.25;
+      const reach = def.range;
       entity.hitboxActive = {
         x: entity.x + (entity.facing > 0 ? entity.w*0.2 : -entity.w*0.2 - reach),
         y: entity.y - entity.h*0.55,
@@ -771,16 +779,18 @@
       const depthOk = Math.abs(attacker.y - target.y) <= MELEE_DEPTH_TOLERANCE;
       const xOk = hb.x < target.x + target.w/2 && hb.x + hb.w > target.x - target.w/2;
       if (depthOk && xOk){
-        // punch_lvl_1: +25% damage (only players carry a punchLevel, so this is a no-op for enemies)
-        const levelMul = (attacker._atkType === "punch" && attacker.punchLevel >= 1) ? 1.25 : 1;
+        // punch_lvl_1 / kick_lvl_1: +25% damage (only players carry these levels, so this is a no-op for enemies)
+        const levelMul = ((attacker._atkType === "punch" && attacker.punchLevel >= 1) ||
+                           (attacker._atkType === "kick" && attacker.kickLevel >= 1)) ? 1.25 : 1;
         target.takeHit(hb.damage * (attacker.damageMul || 1) * levelMul, attacker.x, attacker.y);
         attacker.attackHasHit = true;
         if (attacker === p1){
           gainSpecialCharge(1);
-          spawnOnHitEffect(target.x, target.y - target.h*0.4, attacker.state); // attacker.state is "punch" or "kick" here
-          // kick_lvl_2: a small fire arc that also hits nearby enemies
+          // kick_lvl_2: the fire arc replaces the plain kick on-hit effect entirely, rather than layering on top of it
           if (attacker._atkType === "kick" && attacker.kickLevel >= 2){
             spawnKickFireArc(target.x, target.y, target);
+          } else {
+            spawnOnHitEffect(target.x, target.y - target.h*0.4, attacker.state); // attacker.state is "punch" or "kick" here
           }
         }
         break;
@@ -804,10 +814,14 @@
     papers:   { x: 0, z: 40 },
     paver:    { x: 0, z: 0 }
   };
-  // Where the volley-punch fist image sits relative to the player. x: shifts toward the
-  // direction the player is facing. z: positive = higher above the head, negative = lower.
-  const PUNCH_FIST_OFFSET = { x: 0, z: -10 };
-  const PUNCH_FIST_SIZE = 1.2; // multiplier on the player's own width; bump up/down to resize the fist image
+  // Position of each of the two volley-punch fists, in pixels, relative to the punching arm.
+  // x: distance out from the player in the direction they're facing (bigger = further out).
+  // z: vertical offset from arm height -- positive = higher up, negative = lower.
+  const PUNCH_VOLLEY_FISTS = [
+    { x: 26, z: 40 },
+    { x: 48, z: 16 }
+  ];
+  const PUNCH_FIST_SIZE = 1.2; // multiplier on the player's own width; bump up/down to resize both fists
   const FIREBALL_SPEED = 480;
   const FIREBALL_RADIUS = 9;
   const FIREBALL_DAMAGE = 15;
@@ -922,6 +936,9 @@
 
   // ---------- On-hit effects: a distinct impact visual per attack type, spawned where the player's hit lands ----------
   const ONHIT_DURATION = 0.28;
+  // Per-type size multiplier for on-hit sprite art (not the procedural fallbacks, those size themselves).
+  // Only needed when a type's real effect radius is much bigger than the shared base size below.
+  const ONHIT_SPRITE_SIZE_MUL = { kickfire: 3 };
   const onHitEffects = [];
 
   // Position dial per attack type, in pixels. Unlike EFFECT_SPAWN_OFFSET this isn't facing-relative
@@ -935,22 +952,24 @@
     papers:   { x: 0, z: 10 },
     special:  { x: 0, z: 10 },
     paver:    { x: 0, z: 0 },
-    kickfire: { x: 0, z: 20 },
+    kickfire: { x: 0, z: 80 },
     punchVolley: { x: 0, z: 40 }
   };
 
-  function spawnOnHitEffect(x, y, type){
+  function spawnOnHitEffect(x, y, type, duration){
     const off = ONHIT_SPAWN_OFFSET[type] || { x: 0, z: 0 };
-    onHitEffects.push({ x: x + off.x, y: y - off.z, type, timer: ONHIT_DURATION, maxTimer: ONHIT_DURATION });
+    const d = duration || ONHIT_DURATION;
+    onHitEffects.push({ x: x + off.x, y: y - off.z, type, timer: d, maxTimer: d });
   }
 
   // kick_lvl_2 payoff: a small fire arc around the kicked target that also damages nearby enemies
   const KICK_FIRE_RADIUS = 55;
   const KICK_FIRE_DAMAGE = 8;
   const KICK_FIRE_KNOCK = 120;
+  const KICK_FIRE_DURATION = 0.5; // longer than the default on-hit flash so the AOE blast is easy to see
 
   function spawnKickFireArc(x, y, excludeTarget){
-    spawnOnHitEffect(x, y, "kickfire");
+    spawnOnHitEffect(x, y, "kickfire", KICK_FIRE_DURATION);
     for (const e of enemies){
       if (!e.alive || e === excludeTarget) continue;
       const dist = Math.hypot(e.x - x, e.y - y);
@@ -958,6 +977,78 @@
         e.takeHit(KICK_FIRE_DAMAGE, x, y, KICK_FIRE_KNOCK);
       }
     }
+  }
+
+  // ---------- Health pack pickups ----------
+  const HEALTH_PACK_DROP_CHANCE = 0.2; // 20% chance per enemy/boss/paver defeat
+  const HEALTH_PACK_HEAL_AMOUNT = 30;
+  const HEALTH_PACK_PICKUP_RADIUS = 30;
+  const HEALTH_PACK_LIFETIME = 12; // seconds before it disappears if left uncollected
+
+  const healthPacks = [];
+
+  function spawnHealthPack(x, y){
+    healthPacks.push({ x, y, timer: HEALTH_PACK_LIFETIME, bobPhase: Math.random() * Math.PI * 2 });
+  }
+
+  function updateHealthPacks(dt){
+    for (let i = healthPacks.length - 1; i >= 0; i--){
+      const pack = healthPacks[i];
+      pack.timer -= dt;
+      if (pack.timer <= 0){
+        healthPacks.splice(i, 1);
+        continue;
+      }
+      if (p1.alive && p1.hp < p1.maxHp){
+        const dist = Math.hypot(p1.x - pack.x, p1.y - pack.y);
+        if (dist <= HEALTH_PACK_PICKUP_RADIUS){
+          p1.hp = Math.min(p1.maxHp, p1.hp + HEALTH_PACK_HEAL_AMOUNT);
+          spawnFloatingText(p1.x, p1.y - p1.h * 0.9, `+${HEALTH_PACK_HEAL_AMOUNT} HP`, "#6fd17a");
+          playSfx("heal");
+          healthPacks.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  function drawHealthPack(pack){
+    const s = depthScale(pack.y);
+    const bob = Math.sin(performance.now() / 300 + pack.bobPhase) * 3 * s;
+    const drawY = pack.y - bob;
+    const fading = pack.timer < 2;
+    const blinkOn = !fading || Math.floor(performance.now() / 150) % 2 === 0;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(pack.x, pack.y + 3*s, 8*s, 3*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    if (!blinkOn) return;
+
+    const sprite = getSprite("effect", "healthPack");
+    ctx.save();
+    ctx.translate(pack.x, drawY);
+    if (sprite){
+      const size = 24 * s;
+      const w = size * (sprite.naturalWidth / sprite.naturalHeight);
+      ctx.drawImage(sprite, -w/2, -size/2, w, size);
+    } else {
+      const boxSize = 16 * s;
+      ctx.fillStyle = "#efe6de";
+      roundRect(ctx, -boxSize/2, -boxSize/2, boxSize, boxSize, 3*s);
+      ctx.fill();
+      ctx.strokeStyle = "#8a2020";
+      ctx.lineWidth = 1.5 * s;
+      roundRect(ctx, -boxSize/2, -boxSize/2, boxSize, boxSize, 3*s);
+      ctx.stroke();
+      ctx.fillStyle = "#e5384f";
+      const crossW = boxSize * 0.28, crossL = boxSize * 0.7;
+      ctx.fillRect(-crossW/2, -crossL/2, crossW, crossL);
+      ctx.fillRect(-crossL/2, -crossW/2, crossL, crossW);
+    }
+    ctx.restore();
   }
 
   // ---------- Floating text callouts (e.g. "PUNCH VOLLEY!") ----------
@@ -1008,9 +1099,25 @@
     ctx.translate(e.x, e.y);
 
     if (sprite){
-      const size = 46 * s * (0.7 + t * 0.5);
-      const w = size * (sprite.naturalWidth / sprite.naturalHeight);
-      ctx.drawImage(sprite, -w/2, -size/2, w, size);
+      // if this onhit type is a sprite sheet, crop out the frame matching how far through
+      // the effect's own lifetime we are (a clean one-shot play-through, not a wall-clock loop)
+      const sheet = SPRITE_SHEETS["onhit:" + e.type];
+      let sx = 0, sy = 0, sw = sprite.naturalWidth, sh = sprite.naturalHeight;
+      if (sheet){
+        const frame = Math.min(sheet.frames - 1, Math.floor(t * sheet.frames));
+        const col = frame % sheet.cols;
+        const row = Math.floor(frame / sheet.cols);
+        sw = sprite.naturalWidth / sheet.cols;
+        sh = sprite.naturalHeight / sheet.rows;
+        sx = col * sw;
+        sy = row * sh;
+      }
+      // most on-hit effects share this base size, but a few (like the kick fire arc, whose real
+      // AOE radius is much bigger) need a larger multiplier so the art matches what it's doing
+      const sizeMul = ONHIT_SPRITE_SIZE_MUL[e.type] || 1;
+      const size = 46 * s * (0.7 + t * 0.5) * sizeMul;
+      const w = size * (sw / sh);
+      ctx.drawImage(sprite, sx, sy, sw, sh, -w/2, -size/2, w, size);
       ctx.restore();
       return;
     }
@@ -1075,16 +1182,27 @@
         ctx.fill();
       }
     } else if (e.type === "kickfire"){
-      ctx.strokeStyle = "#ff8a3d";
-      ctx.lineWidth = 3 * s;
+      // radius tracks the actual AOE hit radius (KICK_FIRE_RADIUS) so the visual matches what it's doing
+      const radius = KICK_FIRE_RADIUS * s * Math.min(1, 0.4 + t * 1.2);
+      const glow = ctx.createRadialGradient(0, 0, radius*0.08, 0, 0, radius);
+      glow.addColorStop(0, "#fff2c2");
+      glow.addColorStop(0.35, "#ffb23d");
+      glow.addColorStop(0.7, "#ff5a2f");
+      glow.addColorStop(1, "rgba(229,56,63,0)");
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(0, 0, 18 * s * grow, -0.7, 0.7);
-      ctx.stroke();
-      ctx.strokeStyle = "#ffe37a";
-      ctx.lineWidth = 1.5 * s;
-      ctx.beginPath();
-      ctx.arc(0, 0, 13 * s * grow, -0.6, 0.6);
-      ctx.stroke();
+      ctx.arc(0, 0, radius, 0, Math.PI*2);
+      ctx.fill();
+      // flame streaks radiating outward for texture/motion
+      for (let i = 0; i < 7; i++){
+        const a = (i / 7) * Math.PI * 2 + t * 2.2;
+        ctx.strokeStyle = i % 2 === 0 ? "#ffe37a" : "#ff8a3d";
+        ctx.lineWidth = 3 * s;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * radius * 0.35, Math.sin(a) * radius * 0.35);
+        ctx.lineTo(Math.cos(a) * radius * 0.98, Math.sin(a) * radius * 0.98);
+        ctx.stroke();
+      }
     } else if (e.type === "punchVolley"){
       // a small ring of fire around the fists
       for (let i = 0; i < 6; i++){
@@ -1494,7 +1612,7 @@
       { name: "Punch Level 2", desc: "Multipunches: casts two punches in a row after 3 punches." }
     ],
     kick: [
-      { name: "Kick Level 1", desc: "Adds 25% more distance to hit." },
+      { name: "Kick Level 1", desc: "Deals 25% more damage." },
       { name: "Kick Level 2", desc: "Makes a small arc of fire that does AOE damage." }
     ]
   };
@@ -1560,6 +1678,8 @@
       this.pendingBonusPunch = false;
       this.xp = 0;
       this.xpToNext = XP_TO_NEXT_BASE;
+      this.fireballUnlocked = false; // granted from the perk tree screen after Level 1's boss
+      this.papersUnlocked = false;
       this.spriteGroup = "player";
     }
     handleInput(dt){
@@ -1583,9 +1703,9 @@
 
       if (punchPressed){ if (startAttack(this, "punch")) return; }
       if (kickPressed){ if (startAttack(this, "kick")) return; }
-      if (fireballPressed){ if (startSkill(this, "fireball")) return; }
+      if (fireballPressed && this.fireballUnlocked){ if (startSkill(this, "fireball")) return; }
       if (grenadePressed){ if (startSkill(this, "grenade")) return; }
-      if (papersPressed){ if (startSkill(this, "papers")) return; }
+      if (papersPressed && this.papersUnlocked){ if (startSkill(this, "papers")) return; }
       if (specialPressed){ if (tryActivateSpecial(this)) return; }
 
       if (dx !== 0 || dy !== 0){
@@ -1670,7 +1790,8 @@
   }
 
   // ---------- Paver-throwing enemy: keeps its distance and lobs cobblestones instead of closing to melee ----------
-  const PAVER_THROW_CAST = 0.4;
+  const PAVER_THROW_WINDUP = 0.4;   // telegraph: aim locks in now, but the stone doesn't launch until this elapses
+  const PAVER_THROW_CAST = 0.55;    // total throw-pose lock (windup + a short follow-through after it launches)
   const PAVER_THROW_COOLDOWN_MIN = 1.6;
   const PAVER_THROW_COOLDOWN_MAX = 2.4;
   const PAVER_MISS_CHANCE = 0.25;   // chance a throw goes wide instead of landing dead-on
@@ -1684,14 +1805,32 @@
       this.speed = 65;
       this.attackRange = 260; // stays at range rather than closing to melee distance
       this.throwCooldownTimer = 0.5 + Math.random() * 0.5;
+      this.pendingThrow = null; // {timer, x, y} while winding up -- the stone launches when timer hits 0
     }
     updateAI(dt, players){
       if (!this.alive) return;
       if (this.stunTimer > 0){
         if (this.state !== "hit") this.state = "idle";
+        this.pendingThrow = null; // stunned mid-windup cancels the throw entirely
         return;
       }
-      if (this.state === "hit" || this.state === "throw") return;
+      if (this.state === "hit"){
+        this.pendingThrow = null;
+        return;
+      }
+
+      // resolve an in-progress windup regardless of anything else -- the aim was already locked in,
+      // moving now can't change it, so the player's window to dodge is the windup itself
+      if (this.pendingThrow){
+        this.pendingThrow.timer -= dt;
+        if (this.pendingThrow.timer <= 0){
+          spawnPaver(this, this.pendingThrow.x, this.pendingThrow.y);
+          playSfx("paverThrow");
+          this.pendingThrow = null;
+        }
+        return;
+      }
+      if (this.state === "throw") return;
 
       const alivePlayers = players.filter(p => p.alive);
       if (alivePlayers.length === 0){ this.state = "idle"; return; }
@@ -1719,8 +1858,7 @@
             aimX += Math.cos(missAngle) * PAVER_MISS_OFFSET;
             aimY += Math.sin(missAngle) * PAVER_MISS_OFFSET * 0.5; // less spread on the depth axis, which reads more sensitively
           }
-          spawnPaver(this, aimX, aimY);
-          playSfx("paverThrow");
+          this.pendingThrow = { timer: PAVER_THROW_WINDUP, x: aimX, y: aimY };
           this.throwCooldownTimer = PAVER_THROW_COOLDOWN_MIN + Math.random() * (PAVER_THROW_COOLDOWN_MAX - PAVER_THROW_COOLDOWN_MIN);
         } else if (this.state === "walk"){
           this.state = "idle";
@@ -1782,17 +1920,18 @@
   }
   let enemies = spawnWave(levelIndex);
 
-  let matchState = "menu"; // menu | playing | wave-clear | levelup | win | lose
+  let matchState = "menu"; // menu | playing | wave-clear | levelup | perkTree | win | lose
 
   function resetGame(){
     p1.x = W*0.5; p1.y = FLOOR.yMax - 40; p1.hp = p1.maxHp; p1.alive = true; p1.state = "idle"; p1.poseHold = false; p1.specialPending = false;
     p1.fireballCooldown = 0; p1.grenadeCooldown = 0; p1.papersCooldown = 0; p1.specialCharge = 0;
     p1.punchLevel = 0; p1.kickLevel = 0; p1.punchStreak = 0; p1.pendingBonusPunch = false;
     p1.xp = 0; p1.xpToNext = XP_TO_NEXT_BASE;
+    p1.fireballUnlocked = false; p1.papersUnlocked = false;
     pendingSkillChoices = null;
     levelIndex = 0;
     enemies = spawnWave(levelIndex);
-    fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0;
+    fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0; healthPacks.length = 0;
     matchState = "playing";
     playMusic("level1");
   }
@@ -1873,7 +2012,7 @@
   const CROWD_BG_SCALE = 5;      // bump above 1 to make the crowd image bigger, below 1 to shrink it
   // x: shifts the scroll pattern horizontally (a one-time phase shift; it still scrolls/wraps normally after).
   // z: positive = higher up, negative = lower/closer to the floor.
-  const CROWD_BG_OFFSET = { x: 0, z: -40 };
+  const CROWD_BG_OFFSET = { x: 0, z: -20 };
 
   function drawCrowdBackground(){
     if (!isReady(crowdBg)){
@@ -2062,9 +2201,9 @@
 
   function drawSkillCooldownBars(x, y, player){
     const skills = [
-      { key: "H", name: "FIREBALL", cd: player.fireballCooldown, max: SKILLS.fireball.cooldown, color: "#f2941f" },
-      { key: "L", name: "GRENADE",  cd: player.grenadeCooldown,  max: SKILLS.grenade.cooldown,  color: "#8fae3d" },
-      { key: "U", name: "PAPERS",   cd: player.papersCooldown,   max: SKILLS.papers.cooldown,   color: "#c9c2b3" }
+      { key: "H", name: "FIREBALL", cd: player.fireballCooldown, max: SKILLS.fireball.cooldown, color: "#f2941f", locked: !player.fireballUnlocked },
+      { key: "L", name: "GRENADE",  cd: player.grenadeCooldown,  max: SKILLS.grenade.cooldown,  color: "#8fae3d", locked: false },
+      { key: "U", name: "PAPERS",   cd: player.papersCooldown,   max: SKILLS.papers.cooldown,   color: "#c9c2b3", locked: !player.papersUnlocked }
     ];
     const w = 120, h = 12, gap = 6;
     let py = y;
@@ -2079,18 +2218,20 @@
       ctx.fillStyle = "rgba(20,14,18,0.85)";
       roundRect(ctx, x-2, py-2, w+4, h+4, 3);
       ctx.fill();
-      ctx.strokeStyle = ready ? s.color : "#4a3540";
+      ctx.strokeStyle = s.locked ? "#3a3236" : (ready ? s.color : "#4a3540");
       ctx.lineWidth = 1.5;
       roundRect(ctx, x-2, py-2, w+4, h+4, 3);
       ctx.stroke();
 
       ctx.fillStyle = "#2a1e24";
       ctx.fillRect(x, py, w, h);
-      ctx.fillStyle = s.color;
-      ctx.fillRect(x, py, w * pct, h);
+      if (!s.locked){
+        ctx.fillStyle = s.color;
+        ctx.fillRect(x, py, w * pct, h);
+      }
 
-      ctx.fillStyle = ready ? "#1a1410" : "rgba(255,255,255,0.75)";
-      ctx.fillText(`${s.key} ${s.name}`, x + 5, py + h/2 + 1);
+      ctx.fillStyle = s.locked ? "rgba(255,255,255,0.35)" : (ready ? "#1a1410" : "rgba(255,255,255,0.75)");
+      ctx.fillText(s.locked ? `${s.key} ${s.name} (LOCKED)` : `${s.key} ${s.name}`, x + 5, py + h/2 + 1);
 
       py += h + gap;
     }
@@ -2309,6 +2450,60 @@
       ctx.restore();
     }
 
+    if (matchState === "perkTree"){
+      ctx.save();
+      ctx.fillStyle = "rgba(10,6,9,0.85)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
+      ctx.font = "bold 30px 'Arial Black', Impact, sans-serif";
+      ctx.fillStyle = "#e8b23d";
+      ctx.fillText("PERK TREE UNLOCKED", W/2, 108);
+      ctx.font = "13px 'Arial Narrow', Arial, sans-serif";
+      ctx.fillStyle = "#b9ab9d";
+      ctx.fillText("Press 1 and 2 to unlock new skills, then ENTER to continue", W/2, 132);
+
+      const perks = [
+        { key: "1", name: "Fireball", desc: "A ranged fire projectile, thrown in a straight line.", unlocked: p1.fireballUnlocked, accent: "#f2941f" },
+        { key: "2", name: "Papers", desc: "A thrown stack of papers with a short arc.", unlocked: p1.papersUnlocked, accent: "#c9c2b3" }
+      ];
+      const cardW = 300, cardH = 150, gap = 30;
+      const totalW = perks.length * cardW + (perks.length - 1) * gap;
+      let cx = W/2 - totalW/2;
+      const cardY = 165;
+      for (const perk of perks){
+        ctx.fillStyle = "rgba(33,24,32,0.92)";
+        roundRect(ctx, cx, cardY, cardW, cardH, 6);
+        ctx.fill();
+        ctx.strokeStyle = perk.unlocked ? perk.accent : "#4a3540";
+        ctx.lineWidth = 2;
+        roundRect(ctx, cx, cardY, cardW, cardH, 6);
+        ctx.stroke();
+
+        ctx.font = "bold 20px 'Arial Black', Impact, sans-serif";
+        ctx.fillStyle = perk.unlocked ? perk.accent : "#efe6da";
+        ctx.fillText(`[${perk.key}]`, cx + cardW/2, cardY + 34);
+
+        ctx.font = "bold 15px 'Arial Narrow', Arial, sans-serif";
+        ctx.fillStyle = "#efe6da";
+        ctx.fillText(perk.name, cx + cardW/2, cardY + 62);
+
+        ctx.font = "12px 'Arial Narrow', Arial, sans-serif";
+        ctx.fillStyle = "#b9ab9d";
+        wrapText(ctx, perk.desc, cx + cardW/2, cardY + 90, cardW - 30, 16);
+
+        ctx.font = "bold 12px 'Arial Narrow', Arial, sans-serif";
+        ctx.fillStyle = perk.unlocked ? "#6fd17a" : "#e5384f";
+        ctx.fillText(perk.unlocked ? "UNLOCKED" : "LOCKED", cx + cardW/2, cardY + cardH - 14);
+
+        cx += cardW + gap;
+      }
+
+      ctx.font = "13px 'Arial Narrow', Arial, sans-serif";
+      ctx.fillStyle = "#efe6da";
+      ctx.fillText("Press ENTER to continue", W/2, cardY + cardH + 40);
+      ctx.restore();
+    }
+
     if (matchState === "win" || matchState === "lose"){
       ctx.save();
       ctx.fillStyle = "rgba(10,6,9,0.72)";
@@ -2347,6 +2542,7 @@
       updateOnHitEffects(dt);
       updateFloatingTexts(dt);
       updatePavers(dt);
+      updateHealthPacks(dt);
 
       for (const e of enemies){
         e.updateAI(dt, players);
@@ -2356,7 +2552,7 @@
       }
 
       if (enemies.every(e => !e.alive)){
-        matchState = levelIndex < LEVELS.length - 1 ? "wave-clear" : "win";
+        matchState = levelIndex < LEVELS.length - 1 ? "wave-clear" : "perkTree";
       } else if (!p1.alive){
         matchState = "lose";
       }
@@ -2364,7 +2560,7 @@
       if (keys.has("Enter")){
         levelIndex++;
         enemies = spawnWave(levelIndex);
-        fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0;
+        fireballs.length = 0; grenades.length = 0; explosions.length = 0; papers.length = 0; specialBursts.length = 0; onHitEffects.length = 0; pavers.length = 0; floatingTexts.length = 0; healthPacks.length = 0;
         // clear out whatever mid-animation state the player was frozen in while the wave-clear screen was up
         p1.state = "idle";
         p1.poseHold = false;
@@ -2378,6 +2574,10 @@
       } else if (pendingSkillChoices && pendingSkillChoices[1] && keys.has("Digit2")){
         applySkillChoice(pendingSkillChoices[1]);
       }
+    } else if (matchState === "perkTree"){
+      if (keys.has("Digit1")) p1.fireballUnlocked = true;
+      if (keys.has("Digit2")) p1.papersUnlocked = true;
+      if (keys.has("Enter")) matchState = "win";
     } else {
       if (keys.has("Enter")) resetGame();
     }
@@ -2395,6 +2595,7 @@
       for (const ex of explosions) drawExplosion(ex);
       for (const b of specialBursts) drawSpecialBurst(b);
       for (const pv of pavers) drawPaver(pv);
+      for (const pack of healthPacks) drawHealthPack(pack);
       for (const e of onHitEffects) drawOnHitEffect(e);
       for (const f of floatingTexts) drawFloatingText(f);
       drawHUD();
