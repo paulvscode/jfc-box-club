@@ -516,7 +516,8 @@
       fireball: "assets/player/fireball.png",
       grenade:  "assets/player/grenade.png",
       papers:   "assets/player/paperwork.png",
-      special:  "assets/player/special.png"
+      special:  "assets/player/special.png",
+      combo:    "assets/player/combo.png"
     },
     enemy1: {
       idle:  "assets/enemy/enemy1/idle.png",
@@ -594,14 +595,21 @@
   // than its siblings (usually because that PNG has more/less transparent padding
   // around the figure than the others). 1 = no adjustment.
   // Groups not listed here (e.g. an enemy variant with no tuning yet) default to scale 1 for every state.
+  // Single dial for the boss's overall size: every boss pose scales off this one multiplier,
+  // so resizing the boss is a one-line change instead of retuning each state separately.
+  const BOSS_SPRITE_SCALE = 1.5;
+  // Same idea for the combo finisher pose -- change this one number to resize it.
+  const COMBO_SPRITE_SCALE = 1.4;
   const SPRITE_SCALE = {
-    player: { idle: 1.55, walk: 1.3, punch: 1.6, kick: 1.6, hit: 1.3, fireball: 1.3, grenade: 1.5, papers: 1.5, special: 1 },
+    player: { idle: 1.55, walk: 1.3, punch: 1.6, kick: 1.6, hit: 1.3, fireball: 1.3, grenade: 1.5, papers: 1.5, special: 1, combo: COMBO_SPRITE_SCALE },
     enemy1: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy2: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy3: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy4: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
     enemy5: { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
-    boss:   { idle: 1.5, walk: 1.5, punch: 1.5, kick: 1.5, hit: 1.5 },
+    // every boss state listed (previously "charge"/"throw" were missing here and silently
+    // fell back to scale 1, which is why they rendered smaller than the rest of the boss's poses)
+    boss:   { idle: BOSS_SPRITE_SCALE, walk: BOSS_SPRITE_SCALE, punch: BOSS_SPRITE_SCALE, kick: BOSS_SPRITE_SCALE, hit: BOSS_SPRITE_SCALE, charge: BOSS_SPRITE_SCALE, throw: BOSS_SPRITE_SCALE },
     paver:  { idle: 1.6, walk: 1.6, throw: 1.6, hit: 1.6 }
   };
 
@@ -612,7 +620,7 @@
   // y: positive = shift down, negative = shift up.
   // Groups not listed here default to no offset for every state.
   const SPRITE_OFFSET = {
-    player: { idle: {x:0,y:10}, walk: {x:0,y:0}, punch: {x:0,y:10}, kick: {x:0,y:10}, hit: {x:0,y:0}, fireball: {x:0,y:0}, grenade: {x:0,y:0}, papers: {x:0,y:10}, special: {x:0,y:0} }
+    player: { idle: {x:0,y:10}, walk: {x:0,y:0}, punch: {x:0,y:10}, kick: {x:0,y:10}, hit: {x:0,y:0}, fireball: {x:0,y:0}, grenade: {x:0,y:0}, papers: {x:0,y:10}, special: {x:0,y:0}, combo: {x:0,y:10} }
   };
 
   // Sprite sheets: only list a group:state here if that PNG is a strip/grid of frames
@@ -624,6 +632,7 @@
     "player:walk": { cols: 8, rows: 1, frames: 8, fps: 10 },
     "player:grenade": { cols: 3, rows: 1, frames: 3, fps: 5 }, // 3 frames over the 0.3s throw cast, one pass per throw
     "player:papers": { cols: 3, rows: 1, frames: 3, fps: 3.75 },  // 25% slower than the grenade throw
+    "player:combo": { cols: 6, rows: 1, frames: 6, fps: 6.3 },    // matches COMBO_FPS -- one pass over the ~0.95s combo
     // player:special intentionally not listed -- it's now a single static image, not a sheet
     "effect:papers": { cols: 10, rows: 1, frames: 10, fps: 14 },
     "effect:fireball": { cols: 3, rows: 1, frames: 3, fps: 12 },
@@ -680,7 +689,8 @@
       paverThrow:  "assets/audio/sfx/paver_throw.mp3",
       punchVolley: "assets/audio/sfx/punch_volley.mp3",
       heal:        "assets/audio/sfx/heal.mp3",
-      bossCharge:  "assets/audio/sfx/boss_charge.mp3"
+      bossCharge:  "assets/audio/sfx/boss_charge.mp3",
+      combo:       "assets/audio/sfx/combo.mp3"
     }
   };
   const MUSIC_VOLUME = 0.5;
@@ -759,7 +769,9 @@
     get scale(){ return depthScale(this.y); }
     get screenBottom(){ return this.y; }
     takeHit(damage, fromX, fromY, knockForce){
-      if (this.hitCooldown > 0 || !this.alive) return;
+      // invulnerable for the duration of the combo finisher -- it's a committed, multi-frame move,
+      // so getting knocked into "hit" mid-animation reads as a glitch rather than a fair interruption
+      if (this.hitCooldown > 0 || !this.alive || this.state === "combo") return;
       this.hp = Math.max(0, this.hp - damage);
       this.state = "hit";
       this.stateTimer = 0.28;
@@ -788,6 +800,7 @@
     updateCommon(dt){
       if (this.hitCooldown > 0) this.hitCooldown -= dt;
       if (this.attackCooldown > 0) this.attackCooldown -= dt;
+      if (this.comboCooldown > 0) this.comboCooldown -= dt;
       if (this.fireballCooldown > 0) this.fireballCooldown -= dt;
       if (this.grenadeCooldown > 0) this.grenadeCooldown -= dt;
       if (this.papersCooldown > 0) this.papersCooldown -= dt;
@@ -880,7 +893,7 @@
       }
 
       let bodyColor = this.color;
-      const flashAmounts = { punch: 0.22, kick: 0.35, fireball: 0.45, grenade: 0.3, papers: 0.3, special: 0.6, throw: 0.3, charge: 0.4 };
+      const flashAmounts = { punch: 0.22, kick: 0.35, combo: 0.4, fireball: 0.45, grenade: 0.3, papers: 0.3, special: 0.6, throw: 0.3, charge: 0.4 };
       if (flashAmounts[this.state] !== undefined){
         bodyColor = lighten(this.color, flashAmounts[this.state]);
       }
@@ -924,10 +937,10 @@
       ctx.arc(this.facing * w*0.3, top - h*0.08, Math.max(1.5, 2.5*s), 0, Math.PI*2);
       ctx.fill();
 
-      // arm swing for punch/kick telegraph
-      if (this.state === "punch" || this.state === "kick"){
+      // arm swing for punch/kick/combo telegraph
+      if (this.state === "punch" || this.state === "kick" || this.state === "combo"){
         ctx.fillStyle = flashWhite ? "#ffffff" : lighten(this.darkColor, 0.2);
-        const reach = (this.state === "kick" ? 0.95 : 0.75) * w;
+        const reach = (this.state === "kick" || this.state === "combo" ? 0.95 : 0.75) * w;
         ctx.fillRect(this.facing > 0 ? 0 : -reach, top + h*0.18, reach, h*0.14);
       }
 
@@ -975,16 +988,25 @@
       ctx.restore();
     }
     drawSprite(ctx, img, s, flashWhite){
+      // "dead" has no art/sheet/scale entry of its own -- getSprite() already fell back to the
+      // idle image itself, so treat the state as "idle" here too for sheet/scale/offset lookups.
+      // Otherwise a sheet-based idle pose (e.g. the paver's 3-frame strip) gets drawn as one
+      // squished frame containing all the frames side by side, instead of a clean idle pose.
+      const spriteState = this.alive ? this.state : "idle";
+
       // anchor the sprite's feet at (this.x, this.y), matching the placeholder's ground contact point
-      const scaleMul = (SPRITE_SCALE[this.spriteGroup] && SPRITE_SCALE[this.spriteGroup][this.state]) || 1;
+      const scaleMul = (SPRITE_SCALE[this.spriteGroup] && SPRITE_SCALE[this.spriteGroup][spriteState]) || 1;
       const targetH = this.h * s * 1.35 * scaleMul; // sprites are typically taller than the collision box
 
       // if this group:state is a sprite sheet, crop out the current animation frame;
       // otherwise use the whole image as a single static pose
-      const sheet = SPRITE_SHEETS[this.spriteGroup + ":" + this.state];
+      const sheet = SPRITE_SHEETS[this.spriteGroup + ":" + spriteState];
       let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
       if (sheet){
-        const frame = (this.poseHold && this.state === "special") ? sheet.frames - 1 : Math.floor(performance.now() / 1000 * sheet.fps) % sheet.frames;
+        // a dead entity freezes on the idle sheet's first frame instead of continuing to animate
+        const frame = !this.alive ? 0
+          : (this.poseHold && this.state === "special") ? sheet.frames - 1
+          : Math.floor(performance.now() / 1000 * sheet.fps) % sheet.frames;
         const col = frame % sheet.cols;
         const row = Math.floor(frame / sheet.cols);
         sw = img.naturalWidth / sheet.cols;
@@ -994,7 +1016,7 @@
       }
 
       const targetW = targetH * (sw / sh);
-      const offset = (SPRITE_OFFSET[this.spriteGroup] && SPRITE_OFFSET[this.spriteGroup][this.state]) || { x: 0, y: 0 };
+      const offset = (SPRITE_OFFSET[this.spriteGroup] && SPRITE_OFFSET[this.spriteGroup][spriteState]) || { x: 0, y: 0 };
       ctx.save();
       ctx.translate(this.x, this.y);
       if (this.facing < 0) ctx.scale(-1, 1);
@@ -1145,6 +1167,84 @@
     }
   }
 
+  // ---------- Combo attack: press punch + kick together (J+K) for a punch-into-roundhouse finisher ----------
+  // Sheet is 6 frames: 1 ready stance, 2 forward punch (impact), 3 recoil/chamber, 4-5 roundhouse kick, 6 return to ready.
+  const COMBO_FPS = 6.3; // matches the sheet's playback fps, so the state's lifetime is ~one full pass over it -- 30% slower than the original 9fps
+  const COMBO_ANIM_TIME = 6 / COMBO_FPS; // ~0.95s
+  // Frame 2 (the punch) is a visual beat only -- no damage. All the damage lands in one shot on
+  // frame 5 (the kick impact), so there's a single hit-check instead of two that can independently
+  // whiff (splitting damage across both hits meant a knockback-drifted target between hits could
+  // dodge the kick and silently halve the combo's payoff).
+  const COMBO_KICK_FRAME = 4;        // 0-indexed -- sheet frame 5, the roundhouse's impact moment
+  const COMBO_RANGE = 44; // extra margin over a plain kick's range, so the finisher reliably still connects
+  const COMBO_WIDTH = 38;
+  const COMBO_DAMAGE = ATTACKS.punch.damage * 3;  // full combo payoff -- equivalent to 4 punches
+  const COMBO_KICK_KNOCK = 300; // stronger-than-normal push on the finishing kick (regular hits default to 90)
+  const COMBO_COOLDOWN = 7;
+  // Two human keypresses essentially never land on the exact same frame, so a lone punch or kick
+  // press waits up to this long to see if its combo partner follows before committing to a single
+  // attack. Higher = more reliable combo detection but more added delay on ordinary solo punches/kicks.
+  const COMBO_INPUT_BUFFER = 0.06;
+
+  function startCombo(entity){
+    // gated on its own comboCooldown, independent of attackCooldown -- so being on combo
+    // cooldown never blocks ordinary punches/kicks (and vice versa), same as the skill cooldowns
+    if (entity.comboCooldown > 0 || entity.state === "hit" || !entity.alive) return false;
+    if (["punch", "kick", "fireball", "grenade", "papers", "special", "combo"].includes(entity.state)) return false;
+    entity.state = "combo";
+    entity.stateTimer = COMBO_ANIM_TIME;
+    entity._comboPhaseTimer = 0;
+    entity._comboHitKick = false;
+    entity.comboCooldown = COMBO_COOLDOWN + COMBO_ANIM_TIME;
+    playSfx("combo");
+    return true;
+  }
+
+  function comboHitbox(entity){
+    return {
+      x: entity.x + (entity.facing > 0 ? entity.w*0.2 : -entity.w*0.2 - COMBO_RANGE),
+      y: entity.y - entity.h*0.55,
+      w: COMBO_RANGE + entity.w*0.2,
+      h: COMBO_WIDTH
+    };
+  }
+
+  function resolveComboHit(attacker, targets, damage, onhitKey, knock){
+    const hb = attacker.hitboxActive;
+    if (!hb) return;
+    for (const target of targets){
+      if (!target.alive) continue;
+      const depthOk = Math.abs(attacker.y - target.y) <= MELEE_DEPTH_TOLERANCE;
+      const xOk = hb.x < target.x + target.w/2 && hb.x + hb.w > target.x - target.w/2;
+      if (depthOk && xOk){
+        target.takeHit(damage * (attacker.damageMul || 1), attacker.x, attacker.y, knock);
+        if (attacker === p1){
+          gainSpecialCharge(1);
+          spawnOnHitEffect(target.x, target.y - target.h*0.4, onhitKey);
+        }
+        break;
+      }
+    }
+  }
+
+  function updateComboPhase(entity, dt){
+    if (entity.state !== "combo") return;
+    entity._comboPhaseTimer += dt;
+    const frame = Math.min(5, Math.floor(entity._comboPhaseTimer * COMBO_FPS));
+    const targets = entity === p1 ? enemies : players;
+    if (frame === COMBO_KICK_FRAME && !entity._comboHitKick){
+      entity.hitboxActive = comboHitbox(entity);
+      resolveComboHit(entity, targets, COMBO_DAMAGE, "kick", COMBO_KICK_KNOCK);
+      entity._comboHitKick = true;
+    } else {
+      entity.hitboxActive = null;
+    }
+    if (entity.stateTimer <= 0){
+      entity.state = "idle";
+      entity.hitboxActive = null;
+    }
+  }
+
   // ---------- Skills: fireball & grenade ----------
   const SKILLS = {
     fireball: { cast: 0.22, cooldown: 5 },
@@ -1213,10 +1313,20 @@
     entity.specialCharge = 0;
     entity.state = "special";
     entity.poseHold = false;
-    entity.specialPending = true; // payoff (damage+stun) fires in updateCommon once the windup finishes
+    entity.specialPending = true; // damage burst fires in updateCommon once the windup finishes
     entity.stateTimer = SPECIAL_ANIM_TIME;
     playSfx("special");
     if (entity === p1) triggerSpecialPopup();
+    // freeze enemies the instant the special is cast, not just once its windup finishes --
+    // stunTimer covers the full windup plus the normal payoff stun so they can't act in between.
+    if (entity === p1){
+      for (const e of enemies){
+        if (!e.alive) continue;
+        e.stunTimer = SPECIAL_ANIM_TIME + SPECIAL_STUN_DURATION;
+        e.hitboxActive = null;
+        if (e.state !== "hit") e.state = "idle";
+      }
+    }
     return true;
   }
 
@@ -2151,11 +2261,14 @@
       this.fireballCooldown = 0;
       this.grenadeCooldown = 0;
       this.papersCooldown = 0;
+      this.comboCooldown = 0;
       this.specialCharge = 0;
       this.punchLevel = 0;
       this.kickLevel = 0;
       this.punchStreak = 0;
       this.pendingBonusPunch = false;
+      this.comboBufferType = null; // "punch"/"kick" while waiting to see if its combo partner key follows
+      this.comboBufferTimer = 0;
       this.xp = 0;
       this.xpToNext = XP_TO_NEXT_BASE;
       this.fireballUnlocked = false; // granted from the perk tree screen after Level 1's boss
@@ -2166,7 +2279,7 @@
       if (this.state === "hit" || !this.alive) {
         return;
       }
-      if (this.state === "punch" || this.state === "kick" || this.state === "fireball" || this.state === "grenade" || this.state === "papers" || this.state === "special") return;
+      if (this.state === "punch" || this.state === "kick" || this.state === "combo" || this.state === "fireball" || this.state === "grenade" || this.state === "papers" || this.state === "special") return;
 
       let dx = 0, dy = 0;
       if (keys.has(this.bindings.left)) dx -= 1;
@@ -2176,13 +2289,36 @@
 
       const punchPressed = this.bindings.punch.some(k => keys.has(k));
       const kickPressed = this.bindings.kick.some(k => keys.has(k));
+      const comboPressed = punchPressed && kickPressed;
       const fireballPressed = keys.has("KeyH");
       const grenadePressed = keys.has("KeyL");
       const papersPressed = keys.has("KeyU");
       const specialPressed = keys.has("KeyI");
 
-      if (punchPressed){ if (startAttack(this, "punch")) return; }
-      if (kickPressed){ if (startAttack(this, "kick")) return; }
+      if (comboPressed){
+        this.comboBufferType = null;
+        if (startCombo(this)) return;
+      }
+      if (this.comboBufferType){
+        // already waiting on a lone punch/kick press to see if its combo partner follows
+        const stillHeld = this.comboBufferType === "punch" ? punchPressed : kickPressed;
+        if (!stillHeld){
+          this.comboBufferType = null; // key released before the window closed -- treat as a stray tap
+        } else {
+          this.comboBufferTimer -= dt;
+          if (this.comboBufferTimer <= 0){
+            const type = this.comboBufferType;
+            this.comboBufferType = null;
+            if (startAttack(this, type)) return;
+          } else {
+            return; // still waiting, hold position
+          }
+        }
+      } else if (punchPressed || kickPressed){
+        this.comboBufferType = punchPressed ? "punch" : "kick";
+        this.comboBufferTimer = COMBO_INPUT_BUFFER;
+        return;
+      }
       if (fireballPressed && this.fireballUnlocked){ if (startSkill(this, "fireball")) return; }
       if (grenadePressed){ if (startSkill(this, "grenade")) return; }
       if (papersPressed && this.papersUnlocked){ if (startSkill(this, "papers")) return; }
@@ -3159,6 +3295,7 @@
       p1.updateCommon(dt);
       updateAttackPhase(p1, dt);
       resolveAttack(p1, enemies);
+      updateComboPhase(p1, dt);
       updateFireballs(dt);
       updateGrenades(dt);
       updatePapers(dt);
